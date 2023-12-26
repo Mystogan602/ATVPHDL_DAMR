@@ -24,8 +24,6 @@ namespace HideFilePDF
                 // Đọc toàn bộ nội dung của file PDF thành một mảng byte
                 byte[] pdfBytes = File.ReadAllBytes(PDFPath);
    
-
-
                 // Xử lý byte theo nhu cầu của bạn, ví dụ, thêm dữ liệu vào cuối file
                 //byte[] newData = System.Text.Encoding.UTF8.GetBytes(dataToHide);
                 byte[] newData = new byte[16];
@@ -47,13 +45,6 @@ namespace HideFilePDF
             catch (Exception ex)
             {
                 MessageBox.Show($"Lỗi: {ex.Message}");
-
-
-
-                //commit
-                
-                
-
 
             }
         }

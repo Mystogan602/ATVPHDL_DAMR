@@ -16,20 +16,13 @@ namespace WinFormsApp1
     {
         public const int BlockSize = 512;//byte
         public const int FATSize = 32 * BlockSize; // Kích thước của phần FAT (ví dụ: 16KB)
-        int InfoSize =  FATSize ;
         public long FileSystemSize;
         public string FileSystemFilePath;
 
         private List<(string FileName, long StartBlock, long Size, long FileSize,string hashPassword,string salt)> FAT;
-        private List<(string FileName, long StartBlock, long Size, long FileSize, string hashPassword, string salt)> BACKUP;
-        private static readonly Random random = new Random();
-
-
 
         private byte[] hashedPassword = new byte [BlockSize];
         private const int HashedPasswordBlock = 0; // Block đầu tiên
-
-       
 
         public int getFATSize()
         {
@@ -39,8 +32,6 @@ namespace WinFormsApp1
         {
 
             FAT = new List<(string, long, long, long,string,string)>();
-
-            BACKUP = new List<(string, long, long, long,string,string)>();
 
         }
 
@@ -74,37 +65,9 @@ namespace WinFormsApp1
 
             return fileNames;
         }
-        public List<string> GetFilesFromBACKUP()
-        {
-            List<string> fileNames = new List<string>();
-            MessageBox.Show("IN BACKUP");
-            if (BACKUP != null)
-            {
-                MessageBox.Show("BACKUP ! NULL");
-                foreach (var entry in BACKUP)
-                {
-                    // Thêm tên file vào danh sách
-                    MessageBox.Show("IN LOOP FILE BACKUP");
-
-                    fileNames.Add(entry.FileName);
-                }
-                
-
-            }
-            else
-            {
-                MessageBox.Show("BACKUP NULL");
-            }
-            
-
-
-
-            return fileNames;
-        }
-
         private long GetStartPositionForNewData(FileStream fileSystemStream)
         {
-            long currentPosition = InfoSize; // Bắt đầu từ sau bảng FAT
+            long currentPosition = FATSize; // Bắt đầu từ sau bảng FAT
             // Lặp qua các block để tìm vị trí trống đầu tiên
             while (currentPosition < fileSystemStream.Length)
             {
@@ -121,27 +84,6 @@ namespace WinFormsApp1
             }
 
             // Nếu không tìm thấy không gian trống, trả về vị trí cuối cùng của tệp
-            return fileSystemStream.Length;
-        }
-        private long GetStartPositionForBackUp(FileStream fileSystemStream)
-        {
-            long currentPosition = FATSize+BlockSize;
-            // Lặp qua các block để tìm vị trí trống đầu tiên
-            while (currentPosition < InfoSize)
-            {
-                byte[] buffer = new byte[BlockSize];
-                int bytesRead = ReadBlock(fileSystemStream, currentPosition, buffer);
-
-                // Nếu block hiện tại là block trống, trả về vị trí bắt đầu của block
-                if (IsBlockEmpty(buffer, bytesRead))
-                {
-                    return currentPosition;
-                }
-
-                currentPosition += BlockSize;
-            }
-
-
             return fileSystemStream.Length;
         }
         private long GetStartPositionForNewEntry(FileStream fileSystemStream)
@@ -163,32 +105,8 @@ namespace WinFormsApp1
             }
 
             // Nếu không tìm thấy không gian trống, trả về vị trí cuối cùng của FAT
-            return InfoSize;
+            return FATSize;
         }
-
-        public long GetTotalUsedSpace()
-        {
-            long totalUsedSpace = InfoSize;
-
-            using (FileStream fileSystemStream = new FileStream(FileSystemFilePath, FileMode.Open, FileAccess.Read))
-            {
-                byte[] buffer = new byte[BlockSize];
-                // Lặp qua từng block của hệ thống tập tin
-                for (long currentPosition = totalUsedSpace; currentPosition < fileSystemStream.Length; currentPosition += BlockSize)
-                {
-                    int bytesRead = ReadBlock(fileSystemStream, currentPosition, buffer);
-
-                    // Nếu block không trống, cộng vào tổng không gian đã sử dụng
-                    if (!IsBlockEmpty(buffer, bytesRead))
-                    {
-                        totalUsedSpace += bytesRead;
-                    }
-                }
-            }
-
-            return totalUsedSpace;
-        }
-
         private void WriteFATAndData(string filePath,string hashPassword,string salt)
         {
             // Cập nhật thông tin FAT ở đầu tệp MYFS
@@ -245,45 +163,6 @@ namespace WinFormsApp1
             // Thực hiện quá trình Import vào hệ thống tập tin
             WriteDataInFileSystem(filePath, startPosition);
         }
-        private void WriteFATInBackup(FileStream fileSystemStream, string fileName)
-        {
-            var fileEntry = FAT.FirstOrDefault(entry => entry.FileName == fileName);
-
-            // Cập nhật thông tin FAT ở đầu tệp MYFS
-            long fileSizeInBlocks;
-            long fileSize;
-            long startBlock;
-            long startPosition;
-            // Xác định vị trí bắt đầu trong hệ thống tập tin cho dữ liệu mới
-
-            startBlock = fileEntry.StartBlock;
-            fileSizeInBlocks = (long)Math.Ceiling(fileEntry.FileSize / (double)BlockSize);
-
-            fileSize = fileEntry.FileSize;
-            // Cập nhật thông tin entry FAT mới
-            long entryOffset = GetStartPositionForBackUp(fileSystemStream); // Giả sử mỗi entry FAT có kích thước là 512 byte
-            if (entryOffset >= InfoSize)
-            {
-                MessageBox.Show("Hệ thống entry đã đầy. Không thể Import thêm file.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-            else
-            {
-
-
-                // Đặt vị trí bắt đầu trong vung backup
-                fileSystemStream.Seek(entryOffset, SeekOrigin.Begin);
-
-                byte[] entryData = new byte[BlockSize]; // Độ dài của mỗi entry FAT
-                Encoding.UTF8.GetBytes(fileName).CopyTo(entryData, 0); // Tên file
-                BitConverter.GetBytes(startBlock).CopyTo(entryData, 256); // Start block
-                BitConverter.GetBytes((long)Math.Ceiling(fileSize / (double)BlockSize)).CopyTo(entryData, 256 + 8); // Size in blocks
-                BitConverter.GetBytes(fileSize).CopyTo(entryData, 256 + 8 * 2); // File size
-                fileSystemStream.Write(entryData, 0, entryData.Length);
-
-            }
-
-        }
         private void WriteDataInFileSystem(string filePath, long startPosition)
         {
             using (FileStream fileSystemStream = new FileStream(FileSystemFilePath, FileMode.Open, FileAccess.ReadWrite))
@@ -306,7 +185,6 @@ namespace WinFormsApp1
             }
 
         }
-
         public void ReadHashedPassword()
         {
             using (FileStream fs = new FileStream(FileSystemFilePath, FileMode.Open, FileAccess.Read))
@@ -373,50 +251,6 @@ namespace WinFormsApp1
                 }
             }
         }
-        public void ReadBACKUP()
-        {
-            // Mở file hệ thống để đọc bảng FAT
-            using (FileStream fs = new FileStream(FileSystemFilePath, FileMode.Open, FileAccess.Read))
-            {
-                fs.Seek(BlockSize+FATSize, SeekOrigin.Begin); // Di chuyển đến block thứ hai (sau block chứa hashed password)
-
-                // Đọc dữ liệu BACKUP từ tệp MYFS
-                byte[] fatData = new byte[FATSize];
-                int bytesRead = fs.Read(fatData, 0, fatData.Length);
-
-                // Kiểm tra xem có đọc đủ dữ liệu không
-                if (bytesRead == FATSize)
-                {
-                    int numberOfEntries = FATSize / BlockSize;
-
-                    for (int i = 0; i < numberOfEntries; i++)
-                    {
-                        byte[] entryData = new byte[BlockSize];
-                        Array.Copy(fatData, i * BlockSize, entryData, 0, BlockSize);
-
-                        // Đọc thông tin từ mỗi entry
-                        string fileName = Encoding.UTF8.GetString(entryData, 0, 256).TrimEnd('\0'); // Đọc tên file
-
-                        long startBlock = BitConverter.ToInt64(entryData, 256); // Đọc start block
-                        long sizeInBlocks = BitConverter.ToInt64(entryData, 256 + 8); // Đọc size in blocks
-                        long fileSize = BitConverter.ToInt64(entryData, 256 + 8 * 2); // Đọc file size
-                        string hassPassword = Encoding.UTF8.GetString(entryData, 256 + 8 * 3, 32).TrimEnd('\0'); // Đọc passwordHash
-                        string salt = Encoding.UTF8.GetString(entryData, 256 + 8 * 3 + 32, 32).TrimEnd('\0'); // Đọc salt
-
-                        if (!string.IsNullOrEmpty(fileName))
-                        {
-                            // Thêm thông tin vào BACKUP
-                            BACKUP.Add((fileName, startBlock, sizeInBlocks, fileSize,"",""));
-                        }
-                    }
-                }
-                else
-                {
-                    MessageBox.Show("Lỗi khi đọc dữ liệu từ bảng FAT.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-            }
-        }
-
         public void InitializeFileSystem(long size, string filePath)
         {
             FileSystemSize = size;
@@ -430,7 +264,6 @@ namespace WinFormsApp1
                 fs.SetLength(FileSystemSize);
             }
         }
-
 
         public void SelectFileSystem(long size, string filePath)
         {
@@ -716,58 +549,6 @@ namespace WinFormsApp1
         }
 
        
-        public void DeleteFile(string fileName)
-        {
-            // Kiểm tra xem file hệ thống đã được khởi tạo chưa
-            if (string.IsNullOrEmpty(FileSystemFilePath) || !File.Exists(FileSystemFilePath))
-            {
-                MessageBox.Show("Hệ thống tập tin chưa được khởi tạo.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            // Kiểm tra xem file cần xóa có tồn tại trong bảng FAT không
-
-            var fileEntry = FAT.FirstOrDefault(entry => entry.FileName == fileName);
-
-            if (fileEntry == default)
-            {
-                MessageBox.Show("Không có file được chọn hoặc file không tồn tại trong hệ thống tập tin.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            try
-            {
-                using (FileStream fileSystemStream = new FileStream(FileSystemFilePath, FileMode.Open, FileAccess.ReadWrite))
-                {
-
-                    // Xác định vị trí bắt đầu trong hệ thống tập tin cho file cần xóa
-                    long startPositionOfFileName = GetStartPositionOfFileName(fileSystemStream, fileName);
-
-
-                    // Ghi FAT vao vung backup
-                  
-
-                    WriteFATInBackup(fileSystemStream,fileName);
-
-
-                    // Đặt vị trí bắt đầu trong hệ thống tập tin de xoa ten File
-                    fileSystemStream.Seek(startPositionOfFileName, SeekOrigin.Begin);
-
-                    // Ghi dữ liệu rỗng vào vị trí của file để xóa nó
-                    byte[] emptyBufferFileName = new byte[BlockSize];
-                    fileSystemStream.Write(emptyBufferFileName, 0, emptyBufferFileName.Length);
-                }
-
-                // Update FAT to mark the file as deleted
-                FAT.Remove(fileEntry);
-
-                MessageBox.Show("File đã được xóa thành công.");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Lỗi khi xóa file: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
         public byte[] ReadFileFromDRS(string fileName)
         {
             var fileEntry = FAT.FirstOrDefault(entry => entry.FileName == fileName);
@@ -845,21 +626,6 @@ namespace WinFormsApp1
                 }
             }
         }
-        public static string GenerateSalt()
-        {
-            int saltLength = 8; // Độ dài cố định cho muối
-            string allowedChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-=_+";
-            StringBuilder salt = new StringBuilder();
-
-            for (int i = 0; i < saltLength; i++)
-            {
-                int index = random.Next(0, allowedChars.Length);
-                salt.Append(allowedChars[index]);
-            }
-
-            return salt.ToString();
-        }
-
         public static string HashPassword(string password, string salt)
         {
             using (var sha256 = SHA256.Create())
@@ -928,24 +694,5 @@ namespace WinFormsApp1
             }
         }
         
-        public void recoveryFAT(string fileName)
-        {
-            // Kiểm tra xem file hệ thống đã được khởi tạo chưa
-            if (string.IsNullOrEmpty(FileSystemFilePath) || !File.Exists(FileSystemFilePath))
-            {
-                MessageBox.Show("Hệ thống tập tin chưa được khởi tạo.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            // Kiểm tra xem file cần xóa có tồn tại trong bảng FAT không
-
-            var fileEntry = BACKUP.FirstOrDefault(entry => entry.FileName == fileName);
-
-            if (fileEntry == default)
-            {
-                MessageBox.Show("Không có file được chọn hoặc file không tồn tại trong hệ thống tập tin.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-        }
     }
 }
