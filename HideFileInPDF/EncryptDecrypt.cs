@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace HideFilePDF
+namespace libraryEncryptDecrypt
 {
     internal class EncryptDecrypt
     {

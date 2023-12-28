@@ -10,9 +10,9 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 
 
-namespace WinFormsApp1
+namespace libraryFileProcessing
 {
-    public class FileSystemManager
+    public class FileProcessing
     {
         public const int BlockSize = 512;//byte
         public const int FATSize = 32 * BlockSize; // Kích thước của phần FAT (ví dụ: 16KB)
@@ -20,27 +20,21 @@ namespace WinFormsApp1
         public string FileSystemFilePath;
 
         private List<(string FileName, long StartBlock, long Size, long FileSize,string hashPassword,string salt)> FAT;
-
         private byte[] hashedPassword = new byte [BlockSize];
         private const int HashedPasswordBlock = 0; // Block đầu tiên
-
         public int getFATSize()
         {
             return FATSize;
         }
-        public FileSystemManager()
+        public FileProcessing()
         {
-
             FAT = new List<(string, long, long, long,string,string)>();
-
         }
-
         private int ReadBlock(FileStream fs, long position, byte[] buffer)
         {
             fs.Seek(position, SeekOrigin.Begin);
             return fs.Read(buffer, 0, buffer.Length);
         }
-
         private bool IsBlockEmpty(byte[] buffer, int bytesRead)
         {
             for (int i = 0; i < bytesRead; i++)
@@ -421,8 +415,6 @@ namespace WinFormsApp1
             // Đặt lại trạng thái mật khẩu
             hashedPassword = null;
         }
-
-
         private long GetStartPositionOfFileName(FileStream fileSystemStream, string fileName)
         {
             long currentPosition = BlockSize; // Start after the FAT table
@@ -547,8 +539,6 @@ namespace WinFormsApp1
                 MessageBox.Show($"Lỗi khi xóa file: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-
-       
         public byte[] ReadFileFromDRS(string fileName)
         {
             var fileEntry = FAT.FirstOrDefault(entry => entry.FileName == fileName);
@@ -643,7 +633,6 @@ namespace WinFormsApp1
                 return stringBuilder.ToString();
             }
         }
-
         public byte[] EncryptBytes(byte[] plainBytes, string hashPassword)
         {
             using (Aes aesAlg = Aes.Create())
@@ -668,7 +657,6 @@ namespace WinFormsApp1
                 }
             }
         }
-
         public byte[] DecryptBytes(byte[] cipherBytes, string hashPassword)
         {
             using (Aes aesAlg = Aes.Create())
@@ -693,6 +681,6 @@ namespace WinFormsApp1
                 }
             }
         }
-        
+
     }
 }
