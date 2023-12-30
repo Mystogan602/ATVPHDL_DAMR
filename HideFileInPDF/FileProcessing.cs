@@ -8,28 +8,257 @@ using System.Security.Cryptography;
 
 using System.Drawing;
 using System.Drawing.Drawing2D;
-
+using libraryEncryptDecrypt;
+using System.Reflection;
+using System.Security.Policy;
 
 namespace libraryFileProcessing
 {
     public class FileProcessing
     {
+        private EncryptDecrypt encryptDecrypt = new EncryptDecrypt();
+
         public const int BlockSize = 512;//byte
         public const int FATSize = 32 * BlockSize; // Kích thước của phần FAT (ví dụ: 16KB)
-        public long FileSystemSize;
-        public string FileSystemFilePath;
 
-        private List<(string FileName, long StartBlock, long Size, long FileSize,string hashPassword,string salt)> FAT;
-        private byte[] hashedPassword = new byte [BlockSize];
-        private const int HashedPasswordBlock = 0; // Block đầu tiên
-        public int getFATSize()
-        {
-            return FATSize;
-        }
+        private static string pdfFilePath;
+        private long PDFSize ;
+
+        // Đọc nội dung của tệp PDF
+        private static byte[] pdfBytes;
+        // Tìm vị trí của lần xuất hiện của "/Info" trong nội dung của tệp PDF
+        private int metadataPosition;
+        // Find the position of the last occurrence of "%EOF" in the PDF content
+        private static int eofPosition;
+        private int NotDataSize = eofPosition + FATSize;
+
+        private List<(string FileName, long StartByte, long FileSize, byte[] iv, byte[] salt, string hashedPassword)> FAT;
+
         public FileProcessing()
         {
-            FAT = new List<(string, long, long, long,string,string)>();
+            FAT = new List<(string, long, long, byte[], byte[], string)>();
+           
         }
+
+        public void SelectFilePDF(long size, string filePath)
+        {
+            pdfFilePath = filePath;
+            PDFSize = size;
+            pdfBytes = File.ReadAllBytes(pdfFilePath);
+            metadataPosition = FindBytes(pdfBytes, Encoding.ASCII.GetBytes("/Info"), false, 1);
+            eofPosition = FindBytes(pdfBytes, Encoding.ASCII.GetBytes("%EOF"), false, 2);
+            FAT.Clear(); // Xóa dữ liệu cũ trong bảng FAT
+            ReadFAT();
+        }
+
+        public bool CheckFAT()
+        {
+            // Read the content of the original and modified PDFs
+            byte[] originalPdfBytes = File.ReadAllBytes(pdfFilePath);
+
+            // Check if the metadata position and the next byte in the modified PDF differ from the expected value
+            byte expectedMetadataValue = 32; // Assuming the initial value is 20 (space character)
+            byte byteMetadataPos = originalPdfBytes[metadataPosition];
+            if (byteMetadataPos != expectedMetadataValue)
+            {
+                // Byte at metadataPosition is different, indicating modification
+                return true;
+            }
+            else
+            {
+                // Byte at metadataPosition is equal to expected value, check next byte
+                if (originalPdfBytes[metadataPosition + 1] == expectedMetadataValue)
+                {
+                    return true;
+                }
+                else
+                {
+                    if (eofPosition < PDFSize)
+                    {
+                        return originalPdfBytes[eofPosition] == 0;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
+        public void GenerateFAT()
+        {
+            if (metadataPosition == -1)
+            {
+                MessageBox.Show("Invalid PDF format (missing metadata).", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            if (eofPosition == -1)
+            {
+                MessageBox.Show("Invalid PDF format (missing %EOF).", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            // Mở tệp để ghi thêm nội dung
+            using (FileStream fileStream = new FileStream(pdfFilePath, FileMode.Append, FileAccess.Write))
+            {
+                // Tạo một mảng byte chứa giá trị 0
+                byte[] zeroBytes = new byte[FATSize - 1];
+
+                // Ghi mảng byte vào cuối tệp
+                fileStream.Write(zeroBytes, 0, zeroBytes.Length);
+            }
+        }
+        private byte[] GenerateEntry(string fileName, long fileSize, byte[] iv, byte[] salt, string hashedPassword)
+        {
+            byte[] entryData = new byte[BlockSize]; // Độ dài của mỗi entry FAT
+            Encoding.UTF8.GetBytes(fileName).CopyTo(entryData, 0); // Tên file
+            BitConverter.GetBytes(PDFSize).CopyTo(entryData, 256); // Start byte
+            BitConverter.GetBytes(fileSize).CopyTo(entryData, 256 + 16); // File size
+            Array.Copy(iv, 0, entryData, 256 + 16 + 32, iv.Length);// Copy iv
+            Array.Copy(salt, 0, entryData, 256 + 16 + 32 * 2, salt.Length);//salt
+            Encoding.UTF8.GetBytes(hashedPassword).CopyTo(entryData, 256 + 16+32*2); // Password hash
+            return entryData;
+        }
+
+        public void WriteFAT(string inputFile, byte[] iv, byte[] salt, string hashedPassword)
+        {
+            // Cập nhật thông tin FAT ở đầu tệp MYFS
+            string fileName = Path.GetFileName(inputFile);
+            FileInfo fileInfo = new FileInfo(inputFile);
+            long fileSize = fileInfo.Length;
+
+            // Cập nhật thông tin entry FAT mới
+            using (FileStream fs = new FileStream(pdfFilePath, FileMode.Open, FileAccess.ReadWrite))
+            {
+                long entryOffset = GetStartPositionForNewEntry(fs); // Giả sử mỗi entry FAT có kích thước là 512 byte
+                if (entryOffset >= NotDataSize)
+                {
+                    MessageBox.Show("Hệ thống entry đã đầy. Không thể Import thêm file.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+                else
+                {
+                    if (entryOffset == metadataPosition)
+                    {
+                        byte[] entryData = GenerateEntry(fileName, fileSize, iv, salt, hashedPassword); // Độ dài của mỗi entry FAT
+                        ModifyFirstByteFAT(entryData);
+
+                        entryOffset = eofPosition;
+                        fs.Seek(entryOffset, SeekOrigin.Begin);
+                        fs.Write(entryData, 1, entryData.Length);
+                        FAT.Add((fileName, PDFSize, fileSize, iv, salt, hashedPassword));
+                    }
+                    else
+                    {
+                        fs.Seek(entryOffset, SeekOrigin.Begin);
+                        byte[] entryData = GenerateEntry(fileName, fileSize, iv, salt, hashedPassword);// Độ dài của mỗi entry FAT
+                        fs.Write(entryData, 0, entryData.Length);
+                        FAT.Add((fileName, PDFSize, fileSize, iv, salt, hashedPassword));
+                    }
+                }
+            }
+        }
+        public void ReadFAT()
+        {
+            // Mở file hệ thống để đọc bảng FAT
+            using (FileStream fs = new FileStream(pdfFilePath, FileMode.Open, FileAccess.Read))
+            {
+                fs.Seek(metadataPosition, SeekOrigin.Begin);
+
+                // Đọc dữ liệu FAT từ file PDF
+                byte[] fatData = new byte[FATSize];
+                int bytesRead = fs.Read(fatData, 0, 1);
+                fs.Seek(eofPosition, SeekOrigin.Begin);
+                bytesRead += fs.Read(fatData, 1, fatData.Length);
+
+                // Kiểm tra xem có đọc đủ dữ liệu không
+                if (bytesRead == FATSize)
+                {
+                    int numberOfEntries = FATSize / BlockSize;
+
+                    for (int i = 0; i < numberOfEntries; i++)
+                    {
+                        byte[] entryData = new byte[BlockSize];
+                        Array.Copy(fatData, i * BlockSize, entryData, 0, BlockSize);
+
+                        // Đọc thông tin từ mỗi entry
+                        string fileName = Encoding.UTF8.GetString(entryData, 0, 256).TrimEnd('\0'); // Đọc tên file
+                        long startByte = BitConverter.ToInt64(entryData, 256); // Đọc start byte
+                        long fileSize = BitConverter.ToInt64(entryData, 256 + 16); // Đọc file size
+                        byte[] iv = new byte[32];
+                        byte[] salt = new byte[32];
+                        Array.Copy(entryData, 256 + 16 + 32, iv, 0, 32);// Đọc iv
+                        Array.Copy(entryData, 256 + 16 + 32 * 2, salt, 0, 32); // Đọc salt
+                        string hashedPassword = Encoding.UTF8.GetString(entryData, 256 + 16 + 3*32,32).TrimEnd('\0'); // Đọc passwordHash
+                        if (!string.IsNullOrEmpty(fileName))
+                        {
+                            // Thêm thông tin vào bảng FAT
+                            FAT.Add((fileName, startByte, fileSize, iv, salt,hashedPassword));
+                        }
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("Lỗi khi đọc dữ liệu từ bảng FAT.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+        public List<string> GetFilesFromFAT()
+        {
+            List<string> fileNames = new List<string>();
+
+            foreach (var entry in FAT)
+            {
+                // Thêm tên file vào danh sách
+                fileNames.Add(entry.FileName);
+            }
+
+            return fileNames;
+        }
+        private static int FindBytes(byte[] haystack, byte[] needle, bool reverse = false, int positionNeedle = 1)
+        {
+            // Hàm tìm kiếm vị trí của chuỗi byte (needle) trong mảng byte (haystack)
+            // Parameters:
+            //   - haystack: Mảng byte chứa dữ liệu cần tìm kiếm
+            //   - needle: Mảng byte là chuỗi cần tìm kiếm
+            //   - reverse: Cờ chỉ định xem tìm kiếm có nên thực hiện theo chiều xuôi hay ngược lại
+            //   - positionNeedle: Số chỉ định vị trí của chuỗi cần tìm kiếm (bắt đầu là 1)
+            // Returns:
+            //   - Vị trí đầu tiên của chuỗi cần tìm kiếm nếu tìm thấy, ngược lại trả về -1
+
+            // Xác định hướng tìm kiếm dựa trên giá trị của reverse
+            int increment = reverse ? -1 : 1;
+            int start = reverse ? haystack.Length - 1 : 0;
+            int countNeedle = 0;
+
+            // Duyệt qua mảng byte để tìm kiếm
+            for (int i = start; reverse ? i >= 0 : i < haystack.Length - needle.Length + 1; i += increment)
+            {
+                // Kiểm tra xem có khớp chuỗi cần tìm kiếm không
+                bool found = true;
+                for (int j = 0; j < needle.Length; j++)
+                {
+                    if (haystack[i + j] != needle[j])
+                    {
+                        found = false;
+                        break;
+                    }
+                }
+
+                // Nếu khớp, tăng số lượng chuỗi cần tìm kiếm đã tìm thấy
+                if (found)
+                {
+                    countNeedle++;
+
+                    // Nếu đã tìm thấy đủ số lượng chuỗi cần tìm kiếm, trả về vị trí đầu tiên của chuỗi
+                    if (countNeedle >= positionNeedle)
+                    {
+                        return i + needle.Length;
+                    }
+                }
+            }
+
+            // Trả về -1 nếu không tìm thấy chuỗi cần tìm kiếm
+            return -1;
+        }
+
         private int ReadBlock(FileStream fs, long position, byte[] buffer)
         {
             fs.Seek(position, SeekOrigin.Begin);
@@ -47,260 +276,67 @@ namespace libraryFileProcessing
 
             return true;
         }
-        public List<string> GetFilesFromFAT()
-        {
-            List<string> fileNames = new List<string>();
-
-            foreach (var entry in FAT)
-            {
-                // Thêm tên file vào danh sách
-                fileNames.Add(entry.FileName);
-            }
-
-            return fileNames;
-        }
-        private long GetStartPositionForNewData(FileStream fileSystemStream)
-        {
-            long currentPosition = FATSize; // Bắt đầu từ sau bảng FAT
-            // Lặp qua các block để tìm vị trí trống đầu tiên
-            while (currentPosition < fileSystemStream.Length)
-            {
-                byte[] buffer = new byte[BlockSize];
-                int bytesRead = ReadBlock(fileSystemStream, currentPosition, buffer);
-
-                // Nếu block hiện tại là block trống, trả về vị trí bắt đầu của block
-                if (IsBlockEmpty(buffer, bytesRead))
-                {
-                    return currentPosition;
-                }
-
-                currentPosition += BlockSize;
-            }
-
-            // Nếu không tìm thấy không gian trống, trả về vị trí cuối cùng của tệp
-            return fileSystemStream.Length;
-        }
         private long GetStartPositionForNewEntry(FileStream fileSystemStream)
         {
-            long currentPosition = BlockSize;
-            // Lặp qua các block để tìm vị trí trống đầu tiên
-            while (currentPosition < BlockSize+FATSize)
+            if (!CheckFAT())
             {
-                byte[] buffer = new byte[BlockSize];
-                int bytesRead = ReadBlock(fileSystemStream, currentPosition, buffer);
-
-                // Nếu block hiện tại là block trống, trả về vị trí bắt đầu của block
-                if (IsBlockEmpty(buffer, bytesRead))
-                {
-                    return currentPosition;
-                }
-
-                currentPosition += BlockSize;
+                return metadataPosition;
             }
-
-            // Nếu không tìm thấy không gian trống, trả về vị trí cuối cùng của FAT
-            return FATSize;
-        }
-        private void WriteFATAndData(string filePath,string hashPassword,string salt)
-        {
-            // Cập nhật thông tin FAT ở đầu tệp MYFS
-            string fileName = Path.GetFileName(filePath);
-            long fileSizeInBlocks;
-            long fileSize;
-            long startBlock;
-            long startPosition;
-            using (FileStream fs = new FileStream(FileSystemFilePath, FileMode.Open, FileAccess.ReadWrite))
+            else
             {
-
-                // Xác định vị trí bắt đầu trong hệ thống tập tin cho dữ liệu mới
-                startPosition = GetStartPositionForNewData(fs);
-                startBlock = startPosition / BlockSize;
-                long remainingSpace = Math.Max(0, fs.Length - startPosition);
-
-                using (FileStream sourceStream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+                long currentPosition = eofPosition + BlockSize - 1;
+                // Lặp qua các block để tìm vị trí trống đầu tiên
+                while (currentPosition < NotDataSize)
                 {
-                    // Kiểm tra xem không gian trống còn đủ lớn cho dữ liệu mới không
-                    if (remainingSpace >= sourceStream.Length)
-                    {
-                        fileSizeInBlocks = (long)Math.Ceiling(sourceStream.Length / (double)BlockSize);
-                        fileSize = sourceStream.Length;
-                        // Cập nhật thông tin entry FAT mới
-                        long entryOffset = GetStartPositionForNewEntry(fs); // Giả sử mỗi entry FAT có kích thước là 512 byte
-                        if (entryOffset >= BlockSize+FATSize)
-                        {
-                            MessageBox.Show("Hệ thống entry đã đầy. Không thể Import thêm file.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                            return;
-                        }
-                        else
-                        {
-                            fs.Seek(entryOffset, SeekOrigin.Begin);
-
-                            byte[] entryData = new byte[BlockSize]; // Độ dài của mỗi entry FAT
-                            Encoding.UTF8.GetBytes(fileName).CopyTo(entryData, 0); // Tên file
-                            BitConverter.GetBytes(startBlock).CopyTo(entryData, 256); // Start block
-                            BitConverter.GetBytes((long)Math.Ceiling(fileSize / (double)BlockSize)).CopyTo(entryData, 256 + 8); // Size in blocks
-                            BitConverter.GetBytes(fileSize).CopyTo(entryData, 256 + 8 * 2); // File size
-                            Encoding.UTF8.GetBytes(hashPassword).CopyTo(entryData, 256 + 8 * 3); // Password hash
-                            Encoding.UTF8.GetBytes(salt).CopyTo(entryData, 256 + 8 * 3 + 32); // Salt
-                            fs.Write(entryData, 0, entryData.Length);
-                            FAT.Add((fileName, startBlock, fileSizeInBlocks, fileSize, hashPassword, salt));
-
-                        }
-                    }
-                    else
-                    {
-                        MessageBox.Show("Không đủ không gian trống cho dữ liệu mới.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        return;
-                    }
-                }
-            }
-            // Thực hiện quá trình Import vào hệ thống tập tin
-            WriteDataInFileSystem(filePath, startPosition);
-        }
-        private void WriteDataInFileSystem(string filePath, long startPosition)
-        {
-            using (FileStream fileSystemStream = new FileStream(FileSystemFilePath, FileMode.Open, FileAccess.ReadWrite))
-            {
-                // Đặt vị trí bắt đầu trong hệ thống tập tin
-                fileSystemStream.Seek(startPosition, SeekOrigin.Begin);
-                using (FileStream sourceStream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
-                {
-                    // Đọc toàn bộ nội dung của file nguồn và ghi vào hệ thống tập tin
                     byte[] buffer = new byte[BlockSize];
-                    int bytesRead;
+                    int bytesRead = ReadBlock(fileSystemStream, currentPosition, buffer);
 
-                    while ((bytesRead = sourceStream.Read(buffer, 0, buffer.Length)) > 0)
+                    // Nếu block hiện tại là block trống, trả về vị trí bắt đầu của block
+                    if (IsBlockEmpty(buffer, bytesRead))
                     {
-                        int bytesToWrite = Math.Min(bytesRead, BlockSize);
-                        fileSystemStream.Write(buffer, 0, bytesToWrite);
+                        return currentPosition;
                     }
-                    MessageBox.Show("File đã được Import thành công.");
+
+                    currentPosition += BlockSize;
                 }
-            }
 
-        }
-        public void ReadHashedPassword()
-        {
-            using (FileStream fs = new FileStream(FileSystemFilePath, FileMode.Open, FileAccess.Read))
-            {
-                fs.Seek(0, SeekOrigin.Begin); // Di chuyển đến block đầu tiên 
-                // Đọc dữ liệu 
-                byte[] HashedData = new byte[BlockSize];
-                hashedPassword = new byte[BlockSize];
-                int bytesRead = fs.Read(HashedData, 0, HashedData.Length);
-                // Kiểm tra xem có đọc đủ dữ liệu không
-                if (bytesRead == BlockSize)
-                {
-                    if (HashedData != null)
-                    {
-                        Array.Copy(HashedData, 0, hashedPassword, 0, BlockSize);
-                    }
-                }
-            }
-        }
-        public void ReadFAT()
-        {
-            // Mở file hệ thống để đọc bảng FAT
-            using (FileStream fs = new FileStream(FileSystemFilePath, FileMode.Open, FileAccess.Read))
-            {
-                fs.Seek(BlockSize, SeekOrigin.Begin); // Di chuyển đến block thứ hai (sau block chứa hashed password)
-
-                // Đọc dữ liệu FAT từ tệp MYFS
-                byte[] fatData = new byte[FATSize];
-                int bytesRead = fs.Read(fatData, 0, fatData.Length);
-
-                // Kiểm tra xem có đọc đủ dữ liệu không
-                if (bytesRead == FATSize)
-                {
-                    int numberOfEntries = FATSize / BlockSize;
-
-                    for (int i = 0; i < numberOfEntries; i++)
-                    {
-                        byte[] entryData = new byte[BlockSize];
-                        Array.Copy(fatData, i * BlockSize, entryData, 0, BlockSize);
-
-                        // Đọc thông tin từ mỗi entry
-                        string fileName = Encoding.UTF8.GetString(entryData, 0, 256).TrimEnd('\0'); // Đọc tên file
-
-                        long startBlock = BitConverter.ToInt64(entryData, 256); // Đọc start block
-                        long sizeInBlocks = BitConverter.ToInt64(entryData, 256 + 8); // Đọc size in blocks
-                        long fileSize = BitConverter.ToInt64(entryData, 256 + 8 * 2); // Đọc file size
-
-                        string hassPassword = Encoding.UTF8.GetString(entryData, 256 + 8 * 3, 32).TrimEnd('\0'); // Đọc passwordHash
-                        string salt = Encoding.UTF8.GetString(entryData, 256 + 8 * 3 + 32, 32).TrimEnd('\0'); // Đọc salt
-
-
-
-
-                        if (!string.IsNullOrEmpty(fileName))
-                        {
-                            // Thêm thông tin vào bảng FAT
-                            FAT.Add((fileName, startBlock, sizeInBlocks, fileSize, hassPassword, salt));
-                        }
-                    }
-                }
-                else
-                {
-                    MessageBox.Show("Lỗi khi đọc dữ liệu từ bảng FAT.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-            }
-        }
-        public void InitializeFileSystem(long size, string filePath)
-        {
-            FileSystemSize = size;
-            FileSystemFilePath = filePath;
-            FAT.Clear(); // Xóa dữ liệu cũ trong bảng FAT
-            hashedPassword = null;
-            // Tạo file hệ thống với kích thước và đường dẫn cụ thể
-            using (FileStream fs = new FileStream(FileSystemFilePath, FileMode.Create, FileAccess.Write))
-            {
-                // Đặt kích thước của tệp MYFS
-                fs.SetLength(FileSystemSize);
+                // Nếu không tìm thấy không gian trống, trả về vị trí cuối cùng của FAT
+                return NotDataSize;
             }
         }
 
-        public void SelectFileSystem(long size, string filePath)
+        public void EmbedFileInPDF(string inputFile, string hashedPassword, byte[] salt)
         {
-            if (string.IsNullOrEmpty(FileSystemFilePath))
+            if (!File.Exists(inputFile))
             {
-                // Kiểm tra xem tệp MyFS đã tồn tại hay chưa
-                if (File.Exists(filePath))
-                {
-                    FileSystemFilePath = filePath;
-                    FileSystemSize = size;
-                    FAT.Clear(); // Xóa dữ liệu cũ trong bảng FAT
-                    hashedPassword = null;
-                    ReadFAT();
-                    ReadHashedPassword();
-                }
-                else
-                {
-                    MessageBox.Show("Tệp MyFS.DRS không tồn tại.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                }
-            }
-        }
-
-        public void ImportFile(string filePath,string hashPassword,string salt)
-        {
-            // Kiểm tra xem file hệ thống đã được khởi tạo chưa
-            if (string.IsNullOrEmpty(FileSystemFilePath) || !File.Exists(FileSystemFilePath))
-            {
-                MessageBox.Show("Hệ thống tập tin chưa được khởi tạo.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Invalid file selected.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
-            // Ghi thông tin vào bảng FAT và Data của MyFS
-            WriteFATAndData(filePath,hashPassword,salt);
-        }
+            byte[] fileBytes = encryptDecrypt.EncryptFile(inputFile, hashedPassword, salt);
 
-        public void ExportFile(string fileName, string exportFilePath)
-        {
-            // Kiểm tra xem file hệ thống đã được khởi tạo chưa
-            if (string.IsNullOrEmpty(FileSystemFilePath) || !File.Exists(FileSystemFilePath))
+            using (FileStream fileStream = new FileStream(pdfFilePath, FileMode.Append, FileAccess.Write))
             {
-                MessageBox.Show("Hệ thống tập tin chưa được khởi tạo.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                // Ghi file vào cuối tệp
+                fileStream.Write(fileBytes, 0, fileBytes.Length);
             }
+        }
+        private byte[] ModifyFirstByteFAT(byte[] Bytes)
+        {
+            // Extract relevant parts of the original PDF content
+            byte[] preMetadataBytes = pdfBytes[..metadataPosition];
+            byte[] postMetadataBytes = pdfBytes[metadataPosition..];
 
+            // Combine the parts with the encrypted file bytes
+            byte[] modifiedPdfContent = preMetadataBytes
+                .Concat(Bytes[..1])  // Add the first byte
+                .Concat(postMetadataBytes)
+                .ToArray();
+
+            return modifiedPdfContent;
+        }
+        public void ExportFile(string fileName, string exportFilePath, string hashedPassword, byte[] salt)
+        {
             // Kiểm tra xem file cần xuất có tồn tại trong bảng FAT không
             var fileEntry = FAT.FirstOrDefault(entry => entry.FileName == fileName);
             if (fileEntry == default)
@@ -308,124 +344,90 @@ namespace libraryFileProcessing
                 MessageBox.Show("Không có file được chọn hoặc file không tồn tại trong hệ thống tập tin.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
-            
 
-            using (FileStream fileSystemStream = new FileStream(FileSystemFilePath, FileMode.Open, FileAccess.Read))
+
+            using (FileStream fileSystemStream = new FileStream(pdfFilePath, FileMode.Open, FileAccess.Read))
             using (FileStream exportStream = new FileStream(exportFilePath, FileMode.Create, FileAccess.Write))
             {
                 // Xác định vị trí bắt đầu trong hệ thống tập tin cho file cần xuất
-                long startPosition = fileEntry.StartBlock * BlockSize;
+                long startPosition = fileEntry.StartByte;
 
                 // Đặt vị trí bắt đầu trong hệ thống tập tin
                 fileSystemStream.Seek(startPosition, SeekOrigin.Begin);
 
                 // Đọc dữ liệu từ hệ thống tập tin và ghi vào file xuất
-                byte[] buffer = new byte[BlockSize];
-                long remainingBytes = fileEntry.FileSize;
-                int bytesRead;
-
-                while (remainingBytes > 0 && (bytesRead = fileSystemStream.Read(buffer, 0, buffer.Length)) > 0)
-                {
-                    // Giới hạn số byte cần ghi để không vượt quá kích thước của file
-                    int bytesToWrite = (int)Math.Min(remainingBytes, bytesRead);
-                    exportStream.Write(buffer, 0, bytesToWrite);
-                    remainingBytes -= bytesToWrite;
-                }
+                byte[] buffer = new byte[fileEntry.FileSize];
+                byte[] embeddedFileBytes = encryptDecrypt.DecryptFile(fileName, buffer, hashedPassword, salt);
+                int bytesRead = fileSystemStream.Read(embeddedFileBytes, 0, embeddedFileBytes.Length);
+                exportStream.Write(embeddedFileBytes, 0, bytesRead);
             }
 
             MessageBox.Show("File đã được Export thành công.");
         }
-        public void SetPassword(string newPassword)
+        public byte[] GetIV(string fileName)
         {
-            using (FileStream fs = new FileStream(FileSystemFilePath, FileMode.Open, FileAccess.ReadWrite))
+            // Kiểm tra xem file có tồn tại trong bảng FAT không
+            var fileEntry = FAT.FirstOrDefault(entry => entry.FileName == fileName);
+            if (fileEntry == default)
             {
-
-                if (!string.IsNullOrEmpty(newPassword))
-                {
-                    // Yêu cầu mật khẩu khi khởi tạo hệ thống tập tin
-                    using (SHA256 sha256 = SHA256.Create())
-                    {
-                        hashedPassword = sha256.ComputeHash(Encoding.UTF8.GetBytes(newPassword));
-                    }
-                    fs.Seek(HashedPasswordBlock, SeekOrigin.Begin);
-                    // Lưu hashed password vào block đầu tiên
-                    fs.Write(hashedPassword, 0, hashedPassword.Length);
-                }
+                MessageBox.Show("Không có file được chọn hoặc file không tồn tại trong hệ thống tập tin.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return null;
+            }
+            else
+            {
+                return fileEntry.iv;
             }
         }
-        public void ChangePassword(string oldPassword, string newPassword)
+        public byte[] GetSalt(string fileName)
         {
-            using (SHA256 sha256 = SHA256.Create())
+            // Kiểm tra xem file có tồn tại trong bảng FAT không
+            var fileEntry = FAT.FirstOrDefault(entry => entry.FileName == fileName);
+            if (fileEntry == default)
             {
-                if (CheckPassword(oldPassword))
-                {
-                    byte[] newPasswordHash = new byte[BlockSize];
-                    // Hash mật khẩu mới
-                    byte[] enteredPasswordHash = sha256.ComputeHash(Encoding.UTF8.GetBytes(newPassword));
-                    Array.Copy(enteredPasswordHash, newPasswordHash, enteredPasswordHash.Length);
-                    // Lưu hashed password mới vào block đầu tiên
-                    using (FileStream fs = new FileStream(FileSystemFilePath, FileMode.Open, FileAccess.Write))
-                    {
-                        fs.Seek(HashedPasswordBlock, SeekOrigin.Begin);
-                        fs.Write(enteredPasswordHash, 0, enteredPasswordHash.Length);
-                    }
-
-                    hashedPassword = newPasswordHash; // Cập nhật hashed password trong bộ nhớ
-                }
-                else
-                {
-                    MessageBox.Show("Mật khẩu cũ không đúng.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
+                MessageBox.Show("Không có file được chọn hoặc file không tồn tại trong hệ thống tập tin.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return null;
+            }
+            else
+            {
+                return fileEntry.salt;
             }
         }
-        public bool CheckPassword(string enteredPassword)
+        public string GetHashedPassword(string fileName)
         {
-            ReadHashedPassword();
-            using (SHA256 sha256 = SHA256.Create())
+            // Kiểm tra xem file có tồn tại trong bảng FAT không
+            var fileEntry = FAT.FirstOrDefault(entry => entry.FileName == fileName);
+            if (fileEntry == default)
             {
-                if (string.IsNullOrEmpty(enteredPassword))
-                {
-                    using (FileStream fs = new FileStream(FileSystemFilePath, FileMode.Open, FileAccess.Read))
-                    {
-                        byte[] buffer = new byte[BlockSize];
-                        int bytesRead = ReadBlock(fs, HashedPasswordBlock * BlockSize, buffer);
-                        return IsBlockEmpty(buffer, bytesRead);
-                    }
-                }
-                else
-                {
-                    byte[] enteredPasswordHash = new byte[BlockSize];
-
-                    byte[] tempHash = sha256.ComputeHash(Encoding.UTF8.GetBytes(enteredPassword));
-                    Array.Copy(tempHash, enteredPasswordHash, tempHash.Length);
-                    return hashedPassword.SequenceEqual(enteredPasswordHash);
-                }
+                MessageBox.Show("Không có file được chọn hoặc file không tồn tại trong hệ thống tập tin.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return null;
+            }
+            else
+            {
+                return fileEntry.hashedPassword;
             }
         }
-        public void ClearPassword()
-        {
-            using (FileStream fs = new FileStream(FileSystemFilePath, FileMode.Open, FileAccess.Write))
-            {
-                // Xóa hashed password từ block đầu tiên
-                byte[] emptyBuffer = new byte[BlockSize];
-                fs.Seek(HashedPasswordBlock, SeekOrigin.Begin);
-                fs.Write(emptyBuffer, 0, emptyBuffer.Length);
-            }
 
-            // Đặt lại trạng thái mật khẩu
-            hashedPassword = null;
-        }
         private long GetStartPositionOfFileName(FileStream fileSystemStream, string fileName)
         {
-            long currentPosition = BlockSize; // Start after the FAT table
-
-           
+            long currentPosition = metadataPosition;
 
             //Loop through the file system to find the position of the file by name
             while (currentPosition < fileSystemStream.Length)
             {
                 byte[] buffer = new byte[BlockSize];
-                int bytesRead = ReadBlock(fileSystemStream, currentPosition, buffer);
+                int bytesRead;
+                if (currentPosition == metadataPosition)
+                {
+                    byte[] buffer1 = new byte[1];
+                    bytesRead = ReadBlock(fileSystemStream, currentPosition, buffer1);
+                    currentPosition = eofPosition;
+                    byte[] buffer2 = new byte[BlockSize - 1];
+                    bytesRead += ReadBlock(fileSystemStream, currentPosition, buffer2);
+                }
+                else
+                {
+                    bytesRead = ReadBlock(fileSystemStream, currentPosition, buffer);
+                }
 
                 // Check if the current block contains the file name
                 // Tên file
@@ -444,19 +446,53 @@ namespace libraryFileProcessing
             // If the file name is not found, return the end of the file
             return fileSystemStream.Length;
         }
-        public void DeleteFileNoRecovery(string fileName)
+        private long GetStartPositionForNewData(FileStream fileSystemStream)
         {
-            // Kiểm tra xem file hệ thống đã được khởi tạo chưa
-            if (string.IsNullOrEmpty(FileSystemFilePath) || !File.Exists(FileSystemFilePath))
+            long currentPosition = NotDataSize; // Bắt đầu từ sau bảng FAT
+            // Lặp qua các block để tìm vị trí trống đầu tiên
+            while (currentPosition < fileSystemStream.Length)
             {
-                MessageBox.Show("Hệ thống tập tin chưa được khởi tạo.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
+                byte[] buffer = new byte[BlockSize];
+                int bytesRead = ReadBlock(fileSystemStream, currentPosition, buffer);
+
+                // Nếu block hiện tại là block trống, trả về vị trí bắt đầu của block
+                if (IsBlockEmpty(buffer, bytesRead))
+                {
+                    return currentPosition;
+                }
+
+                currentPosition += BlockSize;
             }
 
+            // Nếu không tìm thấy không gian trống, trả về vị trí cuối cùng của tệp
+            return fileSystemStream.Length;
+        }
+        private void ClearDataAtPosition(FileStream fileStream, long position, int size)
+        {
+            byte[] emptyBuffer = new byte[size];
+            fileStream.Seek(position, SeekOrigin.Begin);
+            fileStream.Write(emptyBuffer, 0, emptyBuffer.Length);
+        }
+
+        private byte[] ReadDataFromFile(FileStream fileStream, long position, int size)
+        {
+            byte[] buffer = new byte[size];
+            fileStream.Seek(position, SeekOrigin.Begin);
+            fileStream.Read(buffer, 0, buffer.Length);
+            return buffer;
+        }
+
+        private void WriteDataToFile(FileStream fileStream, long position, byte[] data, int offset = 0)
+        {
+            fileStream.Seek(position, SeekOrigin.Begin);
+            fileStream.Write(data, offset, data.Length - offset);
+        }
+        public void DeleteFile(string fileName)
+        {
             // Kiểm tra xem file cần xóa có tồn tại trong bảng FAT không
 
-            var fileEntry = FAT.FirstOrDefault(entry =>  entry.FileName == fileName);
-            
+            var fileEntry = FAT.FirstOrDefault(entry => entry.FileName == fileName);
+
             if (fileEntry == default)
             {
                 MessageBox.Show("Không có file được chọn hoặc file không tồn tại trong hệ thống tập tin.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -465,51 +501,34 @@ namespace libraryFileProcessing
 
             try
             {
-                using (FileStream fileSystemStream = new FileStream(FileSystemFilePath, FileMode.Open, FileAccess.ReadWrite))
+                using (FileStream fileSystemStream = new FileStream(pdfFilePath, FileMode.Open, FileAccess.ReadWrite))
                 {
-                    
+
                     // Xác định vị trí bắt đầu trong hệ thống tập tin cho file cần xóa
-                    long startPosition = fileEntry.StartBlock * BlockSize;
-                    long startPositionOfFileName= GetStartPositionOfFileName(fileSystemStream, fileName);
-
-                    // Đặt vị trí bắt đầu trong hệ thống tập tin
-                    fileSystemStream.Seek(startPosition, SeekOrigin.Begin);
+                    long startPosition = fileEntry.StartByte;
+                    long startPositionOfFileName = GetStartPositionOfFileName(fileSystemStream, fileName);
 
                     // Ghi dữ liệu rỗng vào vị trí của file để xóa nó
-                    byte[] emptyBuffer = new byte[fileEntry.FileSize];
-                    fileSystemStream.Write(emptyBuffer, 0, emptyBuffer.Length);
-
-                    // Đặt vị trí bắt đầu trong hệ thống tập tin de xoa ten File
-                    fileSystemStream.Seek(startPositionOfFileName, SeekOrigin.Begin);
-
-                    // Ghi dữ liệu rỗng vào vị trí của file để xóa nó
-                    byte[] emptyBufferFileName = new byte[512];
-                    fileSystemStream.Write(emptyBufferFileName, 0, emptyBufferFileName.Length);
+                    ClearDataAtPosition(fileSystemStream, startPosition, (int)fileEntry.FileSize);
+                    ClearDataAtPosition(fileSystemStream, startPositionOfFileName, BlockSize);
 
                     // Di chuyển dữ liệu từ file tiếp theo lên vị trí của file bị xóa
                     for (int i = FAT.IndexOf(fileEntry) + 1; i < FAT.Count; i++)
                     {
                         var nextFile = FAT[i];
-                        long nextFileStartPosition = nextFile.StartBlock * BlockSize;
+                        long nextFileStartPosition = nextFile.StartByte;
                         long nextFileEntry = startPositionOfFileName + BlockSize;
 
                         // Đọc dữ liệu từ file tiếp theo và ghi vào vị trí của file trước đó
-                        byte[] buffer = new byte[nextFile.FileSize];
-                        fileSystemStream.Seek(nextFileStartPosition, SeekOrigin.Begin);
-                        int bytesRead = fileSystemStream.Read(buffer, 0, buffer.Length);
+                        byte[] buffer = ReadDataFromFile(fileSystemStream, nextFileStartPosition, (int)nextFile.FileSize);
 
                         // Đọc dữ liệu từ entry tiếp theo và ghi vào vị trí của entry trước đó
-                        byte[] bufferEntry = new byte[BlockSize];
-                        fileSystemStream.Seek(nextFileEntry, SeekOrigin.Begin);
-                        int bytesReadEntry = fileSystemStream.Read(bufferEntry, 0, bufferEntry.Length);
+                        byte[] bufferEntry = ReadDataFromFile(fileSystemStream, nextFileEntry, BlockSize);
 
-                        fileSystemStream.Seek(startPosition, SeekOrigin.Begin);
-                        fileSystemStream.Write(buffer, 0, bytesRead);
+                        WriteDataToFile(fileSystemStream, startPosition, buffer);
                         //
-                        nextFile.StartBlock = startPosition / BlockSize;
-                        fileSystemStream.Seek(startPositionOfFileName, SeekOrigin.Begin);
-                        BitConverter.GetBytes(nextFile.StartBlock).CopyTo(bufferEntry, 256); // Start block
-                        fileSystemStream.Write(bufferEntry, 0, bytesReadEntry);
+                        nextFile.StartByte = startPosition;
+                        WriteDataToFile(fileSystemStream, startPositionOfFileName, BitConverter.GetBytes(nextFile.StartByte), 256);
 
                         // Cập nhật vị trí của file trong bảng FAT
                         startPosition = GetStartPositionForNewData(fileSystemStream);
@@ -518,20 +537,16 @@ namespace libraryFileProcessing
                     }
 
                     // Ghi dữ liệu rỗng vào vị trí cuối cùng để xóa file cuối cùng
-                    emptyBuffer = new byte[FAT.LastOrDefault().FileSize];
-                    fileSystemStream.Seek(startPosition, SeekOrigin.Begin);
-                    fileSystemStream.Write(emptyBuffer, 0, emptyBuffer.Length);
+                    ClearDataAtPosition(fileSystemStream, startPosition, (int)FAT.LastOrDefault().FileSize);
 
                     // Ghi dữ liệu rỗng vào vị trí cuối cùng để xóa entry cuối cùng
-                    emptyBuffer = new byte[BlockSize];
-                    fileSystemStream.Seek(startPositionOfFileName, SeekOrigin.Begin);
-                    fileSystemStream.Write(emptyBuffer, 0, emptyBuffer.Length);
+                    ClearDataAtPosition(fileSystemStream, startPositionOfFileName, BlockSize);
 
                 }
 
                 // Update FAT to mark the file as deleted
                 FAT.Remove(fileEntry);
-               
+
                 MessageBox.Show("File đã được xóa thành công.");
             }
             catch (Exception ex)
@@ -539,148 +554,5 @@ namespace libraryFileProcessing
                 MessageBox.Show($"Lỗi khi xóa file: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-        public byte[] ReadFileFromDRS(string fileName)
-        {
-            var fileEntry = FAT.FirstOrDefault(entry => entry.FileName == fileName);
-            if (fileEntry == default)
-            {
-                MessageBox.Show("Không có file được chọn hoặc file không tồn tại trong hệ thống tập tin.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return null;
-            }
-
-            using (FileStream fileSystemStream = new FileStream(FileSystemFilePath, FileMode.Open, FileAccess.Read))
-            {
-                // Xác định vị trí bắt đầu trong hệ thống tập tin cho file cần đọc
-                long startPosition = fileEntry.StartBlock * BlockSize;
-
-                // Đặt vị trí bắt đầu trong hệ thống tập tin
-                fileSystemStream.Seek(startPosition, SeekOrigin.Begin);
-
-                // Đọc dữ liệu từ hệ thống tập tin và trả về dưới dạng mảng byte
-                byte[] buffer = new byte[fileEntry.FileSize];
-                int bytesRead = fileSystemStream.Read(buffer, 0, buffer.Length);
-
-                if (bytesRead != buffer.Length)
-                {
-                    MessageBox.Show("Lỗi khi đọc dữ liệu từ hệ thống tập tin.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return null;
-                }
-
-                return buffer;
-            }
-        }
-        public void WriteBytesToDRSAndUpdateFAT(byte[] data, string fileName, string hashPassword,string salt)
-        {
-            using (FileStream fs = new FileStream(FileSystemFilePath, FileMode.Open, FileAccess.ReadWrite))
-            {
-                long startPosition = GetStartPositionForNewData(fs);
-                long startBlock = startPosition / BlockSize;
-                long remainingSpace = Math.Max(0, fs.Length - startPosition);
-
-                // Kiểm tra xem không gian trống còn đủ lớn cho dữ liệu mới không
-                if (remainingSpace >= data.Length)
-                {
-                    // Cập nhật thông tin entry FAT mới
-                    long entryOffset = GetStartPositionForNewEntry(fs);
-                    if (entryOffset >= FATSize)
-                    {
-                        MessageBox.Show("Hệ thống entry đã đầy. Không thể Import thêm file.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        return;
-                    }
-                    else
-                    {
-                        fs.Seek(entryOffset, SeekOrigin.Begin);
-
-                        byte[] entryData = new byte[BlockSize];
-                        Encoding.UTF8.GetBytes(fileName).CopyTo(entryData, 0);
-                        BitConverter.GetBytes(startBlock).CopyTo(entryData, 256);
-                        BitConverter.GetBytes((long)Math.Ceiling(data.Length / (double)BlockSize)).CopyTo(entryData, 256 + 8);
-                        BitConverter.GetBytes(data.Length).CopyTo(entryData, 256 + 8 * 2);
-                        Encoding.UTF8.GetBytes(hashPassword).CopyTo(entryData, 256 + 8 * 3);
-                        Encoding.UTF8.GetBytes(salt).CopyTo(entryData, 256 + 8 * 3 + 32);
-                        fs.Write(entryData, 0, entryData.Length);
-
-                        // Ghi dữ liệu từ mảng byte vào hệ thống tập tin
-                        fs.Seek(startPosition, SeekOrigin.Begin);
-                        fs.Write(data, 0, data.Length);
-
-                        // Cập nhật bảng FAT
-                        FAT.Add((fileName, startBlock, (long)Math.Ceiling(data.Length / (double)BlockSize), data.Length, hashPassword, null)); // Không lưu salt ở đây
-
-                        MessageBox.Show("Dữ liệu đã được ghi vào file DRS và cập nhật bảng FAT thành công.");
-                    }
-                }
-                else
-                {
-                    MessageBox.Show("Không đủ không gian trống cho dữ liệu mới.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-            }
-        }
-        public static string HashPassword(string password, string salt)
-        {
-            using (var sha256 = SHA256.Create())
-            {
-                byte[] passwordBytes = Encoding.UTF8.GetBytes(password + salt);
-                byte[] hashBytes = sha256.ComputeHash(passwordBytes);
-
-                // Chuyển đổi giá trị hash thành chuỗi hex với độ dài 32 byte (64 ký tự hex)
-                StringBuilder stringBuilder = new StringBuilder(hashBytes.Length * 2);
-                foreach (byte b in hashBytes)
-                {
-                    stringBuilder.Append(b.ToString("x2"));
-                }
-
-                return stringBuilder.ToString();
-            }
-        }
-        public byte[] EncryptBytes(byte[] plainBytes, string hashPassword)
-        {
-            using (Aes aesAlg = Aes.Create())
-            {
-                // Chỉnh kích thước của khóa và muối
-                byte[] key = Encoding.UTF8.GetBytes(hashPassword).Take(32).ToArray();
-                byte[] salt = new byte[aesAlg.BlockSize / 8];
-
-                aesAlg.Key = key;
-                aesAlg.IV = salt;
-
-                ICryptoTransform encryptor = aesAlg.CreateEncryptor(aesAlg.Key, aesAlg.IV);
-
-                using (MemoryStream msEncrypt = new MemoryStream())
-                {
-                    using (CryptoStream csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
-                    {
-                        csEncrypt.Write(plainBytes, 0, plainBytes.Length);
-                        csEncrypt.FlushFinalBlock();
-                    }
-                    return msEncrypt.ToArray();
-                }
-            }
-        }
-        public byte[] DecryptBytes(byte[] cipherBytes, string hashPassword)
-        {
-            using (Aes aesAlg = Aes.Create())
-            {
-                byte[] salt = new byte[aesAlg.BlockSize / 8]; // IV là 0 hết
-
-                aesAlg.Key = Encoding.UTF8.GetBytes(hashPassword);
-                aesAlg.IV = salt;
-
-                ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
-
-                using (MemoryStream msDecrypt = new MemoryStream(cipherBytes))
-                {
-                    using (CryptoStream csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
-                    {
-                        using (MemoryStream msResult = new MemoryStream())
-                        {
-                            csDecrypt.CopyTo(msResult);
-                            return msResult.ToArray();
-                        }
-                    }
-                }
-            }
-        }
-
     }
 }

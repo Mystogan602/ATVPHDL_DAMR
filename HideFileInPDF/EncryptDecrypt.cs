@@ -1,4 +1,5 @@
-﻿using System;
+﻿using libraryFileProcessing;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -9,187 +10,131 @@ using System.Windows.Forms;
 
 namespace libraryEncryptDecrypt
 {
-    internal class EncryptDecrypt
+    public class EncryptDecrypt
     {
-        private string password;
-        private string filePath;
-        private byte[] saltGlobal;
-        public void setPassword(string password)
-        {
-            this.password = password;
+        private FileProcessing file=new FileProcessing();
+        public EncryptDecrypt() {
+
         }
-        public void setFilePath(string filePath)
+        public byte[] CreateSalt()
         {
-            this.filePath = filePath;
-        }
-        public void setSaltGlobal(byte[] saltGlobal)
-        {
-            this.saltGlobal = saltGlobal;
-        }
-        public string getPassword()
-        {
-            return this.password;
-        }
-        public string getFilePath()
-        {
-            return this.filePath;
-        }
-        public byte[] getSalt()
-        {
-            return this.saltGlobal;
-        }
-        static byte[] GenerateSalt()
-        {
+            // Tạo một mảng byte có kích thước là 16
             byte[] salt = new byte[16];
-            using (RNGCryptoServiceProvider rngCsp = new RNGCryptoServiceProvider())
+
+            // Sử dụng RNGCryptoServiceProvider để tạo dữ liệu ngẫu nhiên cho salt
+            using (var rng = new RNGCryptoServiceProvider())
             {
-                rngCsp.GetBytes(salt);
+                rng.GetBytes(salt);
             }
+
+            // Trả về mảng byte chứa salt
             return salt;
         }
-        // Hash the combined password and salt
-        static byte[] HashWithSalt(byte[] data)
+        public string HashPassword(string password, byte[] salt)
         {
-            using (SHA256 sha256 = SHA256.Create())
+            using (var deriveBytes = new Rfc2898DeriveBytes(password, salt, 10000))
+            using (var sha256 = SHA256.Create())
             {
-                return sha256.ComputeHash(data);
+                byte[] hashedBytes = sha256.ComputeHash(deriveBytes.GetBytes(32));  // 256-bit key
+                return Convert.ToBase64String(hashedBytes);  // Lưu mật khẩu băm dưới dạng Base64
             }
         }
-        static byte[] createKey(string password, byte[] salt)
+        public bool VerifyPassword(string inputPassword, string hashedPassword, byte[] salt)
         {
-            byte[] passwordBytes = Encoding.UTF8.GetBytes(password);
-            byte[] passwordAndSalt = new byte[passwordBytes.Length + salt.Length];
-            passwordBytes.CopyTo(passwordAndSalt, 0);
-            salt.CopyTo(passwordAndSalt, passwordBytes.Length);
-
-            // Hash the combined password and salt
-            byte[] hashedKeyWithSalt = HashWithSalt(passwordAndSalt);
-            return hashedKeyWithSalt;
+            // Băm mật khẩu nhập vào với salt từ tệp tin và so sánh với mật khẩu băm từ tệp tin
+            return hashedPassword == HashPassword(inputPassword, salt);
         }
-        public byte[] encryption(string data)
+        //public void ChangePassword(string oldPassword, string newPassword)
+        //{
+        //    using (SHA256 sha256 = SHA256.Create())
+        //    {
+        //        if (CheckPassword(oldPassword))
+        //        {
+        //            byte[] newPasswordHash = new byte[BlockSize];
+        //            // Hash mật khẩu mới
+        //            byte[] enteredPasswordHash = sha256.ComputeHash(Encoding.UTF8.GetBytes(newPassword));
+        //            Array.Copy(enteredPasswordHash, newPasswordHash, enteredPasswordHash.Length);
+        //            // Lưu hashed password mới vào block đầu tiên
+        //            using (FileStream fs = new FileStream(FileSystemFilePath, FileMode.Open, FileAccess.Write))
+        //            {
+        //                fs.Seek(HashedPasswordBlock, SeekOrigin.Begin);
+        //                fs.Write(enteredPasswordHash, 0, enteredPasswordHash.Length);
+        //            }
+
+        //            hashedPassword = newPasswordHash; // Cập nhật hashed password trong bộ nhớ
+        //        }
+        //        else
+        //        {
+        //            MessageBox.Show("Mật khẩu cũ không đúng.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        //        }
+        //    }
+        //}
+
+        public byte[] EncryptFile(string inputFile, string hashedPassword, byte[] salt)
         {
+            // Generate encryption key using PBKDF2
+            byte[] key = GenerateKey(hashedPassword, salt);
 
-            // Encryption key and initialization vector (IV)
-            string iv = "1234567890123456"; // Change this to a secure IV (must be 16 bytes)
-
-            try
+            using (Aes aesAlg = Aes.Create())
             {
-                byte[] salt = GenerateSalt();
-                saltGlobal = salt;
-                byte[] encryptionKey = createKey("123", salt);
-                string executablePath = AppDomain.CurrentDomain.BaseDirectory;
+                aesAlg.Key = key;
+                aesAlg.GenerateIV();
 
+                // Encrypt the file content
+                byte[] encryptedBytes = EncryptFileContent(inputFile, aesAlg);
 
+                file.WriteFAT(inputFile, aesAlg.IV, salt, hashedPassword);
 
-
-                // Read the plaintext from the input file
-               
-
-
-                // Create AES encryption algorithm
-                using (Aes aesAlg = Aes.Create())
-                {
-                    aesAlg.IV = Encoding.UTF8.GetBytes(iv);
-                    aesAlg.Key = encryptionKey;
-                    // Create an encryptor to perform the stream transform
-                    ICryptoTransform encryptor = aesAlg.CreateEncryptor(aesAlg.Key, aesAlg.IV);
-
-                    // Create a memory stream to hold the encrypted data
-                    using (MemoryStream msEncrypt = new MemoryStream())
-                    {
-                        // Create a crypto stream that transforms the file data using encryption
-                        using (CryptoStream csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
-                        {
-                            using (StreamWriter swEncrypt = new StreamWriter(csEncrypt))
-                            {
-                                // Write the plaintext to the crypto stream
-                                swEncrypt.Write(data);
-                            }
-                        }
-                        return msEncrypt.ToArray();
-                        
-
-                        // Write the encrypted data to a new file
-
-                    }
-
-                }
-
+                return encryptedBytes;
             }
-            catch (Exception ex)
-            {
-                return null;
-            }
-
         }
-        public void decryption(string fileName)
+
+        private byte[] GenerateKey(string hashedPassword, byte[] salt)
         {
-            string executablePath = AppDomain.CurrentDomain.BaseDirectory;
-            string keyFileName = fileName + ".dat";
-            string saltFileName = fileName + "s" + ".dat";
-            string iv = "1234567890123456";
-            if (File.Exists(keyFileName))
+            using (var deriveBytes = new Rfc2898DeriveBytes(hashedPassword, salt, 10000))
             {
-                string keyFile = Path.Combine(executablePath, keyFileName);
-                byte[] key = File.ReadAllBytes(keyFile);
-                string saltFile = Path.Combine(executablePath, saltFileName);
-                byte[] salt = File.ReadAllBytes(saltFile);
-                byte[] userPassword = createKey(password, salt);
-                bool areEqual = userPassword.SequenceEqual(key);
-
-                if (areEqual)
-                {
-                    try
-                    {
-
-                        // Read the encrypted data from the input file
-                        byte[] encryptedData = File.ReadAllBytes(fileName);
-
-                        // Create AES decryption algorithm
-                        using (Aes aesAlg = Aes.Create())
-                        {
-                            aesAlg.IV = Encoding.UTF8.GetBytes(iv);
-                            aesAlg.Key = key;
-
-                            // Create a decryptor to perform the stream transform
-                            ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
-
-                            // Create a memory stream to hold the decrypted data
-                            using (MemoryStream msDecrypt = new MemoryStream(encryptedData))
-                            {
-                                // Create a crypto stream that transforms the file data using decryption
-                                using (CryptoStream csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
-                                {
-                                    using (StreamReader srDecrypt = new StreamReader(csDecrypt))
-                                    {
-                                        // Read the decrypted data from the crypto stream
-                                        string decryptedText = srDecrypt.ReadToEnd();
-
-                                        // Write the decrypted text to an output file
-                                        File.WriteAllText(fileName, decryptedText);
-                                        File.Delete(keyFileName);
-                                        MessageBox.Show("File được giải mã thành công !");
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show("Lỗi : " + ex.Message);
-                    }
-
-                }
-                else
-                {
-                    MessageBox.Show("sai mật khẩu !");
-                }
-
-
+                return deriveBytes.GetBytes(32); // 32 bytes for a 256-bit key
             }
-            else
+        }
+
+        private byte[] EncryptFileContent(string inputFile, Aes aesAlg)
+        {
+            using (FileStream fsInput = new FileStream(inputFile, FileMode.Open))
+            using (MemoryStream msOutput = new MemoryStream())
+            using (CryptoStream cryptoStream = new CryptoStream(msOutput, aesAlg.CreateEncryptor(), CryptoStreamMode.Write))
             {
-                MessageBox.Show("File phải được mã trước khi giải mã !");
+                fsInput.CopyTo(cryptoStream);
+                cryptoStream.FlushFinalBlock();
+                return msOutput.ToArray();
+            }
+        }
+        public byte[] DecryptFile(string fileName, byte[] encryptedFile, string hashedPassword, byte[] salt)
+        {
+            // Generate decryption key using PBKDF2
+            byte[] key = GenerateKey(hashedPassword, salt);
+
+            using (Aes aesAlg = Aes.Create())
+            {
+                aesAlg.Key = key;
+
+                // Extract IV from the beginning of the encrypted file
+                aesAlg.IV = file.GetIV(fileName);
+
+                // Decrypt the content (excluding IV)
+                byte[] decryptedBytes = DecryptFileContent(encryptedFile, aesAlg);
+
+                return decryptedBytes;
+            }
+        }
+
+        private byte[] DecryptFileContent(byte[] encryptedFile, Aes aesAlg)
+        {
+            using (MemoryStream msInput = new MemoryStream(encryptedFile, aesAlg.IV.Length, encryptedFile.Length - aesAlg.IV.Length))
+            using (MemoryStream msOutput = new MemoryStream())
+            using (CryptoStream cryptoStream = new CryptoStream(msInput, aesAlg.CreateDecryptor(), CryptoStreamMode.Read))
+            {
+                cryptoStream.CopyTo(msOutput);
+                return msOutput.ToArray();
             }
         }
     }

@@ -53,7 +53,7 @@
             buttonCHonFilePDFCanAn.TabIndex = 0;
             buttonCHonFilePDFCanAn.Text = "Chọn";
             buttonCHonFilePDFCanAn.UseVisualStyleBackColor = false;
-            buttonCHonFilePDFCanAn.Click += buttonCHonFilePDFCanAn_Click;
+            buttonCHonFilePDFCanAn.Click += buttonChonFilePDF_Click;
             // 
             // buttonChonFilePDFDeAn
             // 
@@ -66,7 +66,7 @@
             buttonChonFilePDFDeAn.TabIndex = 2;
             buttonChonFilePDFDeAn.Text = "Chọn";
             buttonChonFilePDFDeAn.UseVisualStyleBackColor = false;
-            buttonChonFilePDFDeAn.Click += buttonChonFilePDFDeAn_Click;
+            buttonChonFilePDFDeAn.Click += buttonChonFileDeAn_Click;
             // 
             // labelChonFilePDFCanAn
             // 

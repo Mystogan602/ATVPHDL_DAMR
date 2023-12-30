@@ -11,6 +11,8 @@ using System.Windows.Forms;
 //using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 using System.Diagnostics;
 using libraryFileProcessing;
+using libraryEncryptDecrypt;
+using System.Security.AccessControl;
 
 namespace HideFilePDF
 {
@@ -18,6 +20,10 @@ namespace HideFilePDF
     {
         private Button selectedButton;
         private static string fileName = null;
+        private static string pdfPath = null;
+        private string filePath = null;
+        private FileProcessing file=new FileProcessing();
+        private EncryptDecrypt encryptDecrypt= new EncryptDecrypt();
         public MainMenu()
         {
             InitializeComponent();
@@ -34,34 +40,42 @@ namespace HideFilePDF
         {
             return fileName;
         }
-        private void buttonCHonFilePDFCanAn_Click(object sender, EventArgs e)
+        private void buttonChonFilePDF_Click(object sender, EventArgs e)
         {
             OpenFileDialog openFileDialog = new OpenFileDialog();
             openFileDialog.Filter = "PDF Files (*.pdf)|*.pdf";
 
             if (openFileDialog.ShowDialog() == DialogResult.OK)
             {
-                string fullPath = openFileDialog.FileName;
+                pdfPath = openFileDialog.FileName;
 
                 // Lấy tên file và đuôi
-                string fileName = Path.GetFileName(fullPath);
+                string fileName = Path.GetFileName(pdfPath);
                 // Hiển thị tên file
                 labelChonFilePDFCanAn.Text = fileName;
                 labelChonFilePDFCanAn.ForeColor = SystemColors.ControlText;
-                DisplayFiles(fullPath);
+                FileInfo PDFInfo = new FileInfo(pdfPath);
+                long PDFSize = PDFInfo.Length;
+                file.SelectFilePDF(PDFSize, filePath);
+                
+                if (!file.CheckFAT())
+                {
+                    file.GenerateFAT();
+                }
+                DisplayFiles(pdfPath);
             }
         }
 
-        private void buttonChonFilePDFDeAn_Click(object sender, EventArgs e)
+        private void buttonChonFileDeAn_Click(object sender, EventArgs e)
         {
             OpenFileDialog openFileDialog = new OpenFileDialog();
-            openFileDialog.Filter = "PDF Files (*.pdf)|*.pdf";
+            openFileDialog.Filter = "All Files (*.*)|*.*";
 
             if (openFileDialog.ShowDialog() == DialogResult.OK)
             {
-                string fullPath = openFileDialog.FileName;
+                filePath = openFileDialog.FileName;
                 // Lấy tên file 
-                string fileName = Path.GetFileName(fullPath);
+                string fileName = Path.GetFileName(filePath);
                 labelChonFilePDFDeAn.Text = fileName;
                 labelChonFilePDFDeAn.ForeColor = SystemColors.ControlText;
             }
@@ -85,6 +99,24 @@ namespace HideFilePDF
             {
                 MessageBox.Show("Vui lòng nhập mật khẩu", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
+            else
+            {
+                try
+                {
+                    byte[] salt = encryptDecrypt.CreateSalt();
+                    string hashedPassword = encryptDecrypt.HashPassword(textBoxMatKhau.Text, salt);
+                    // Nhúng văn bản vào tệp PDF
+                    file.EmbedFileInPDF(filePath, hashedPassword, salt);
+
+                    // Hiển thị thông báo thành công
+                    MessageBox.Show("File embedded successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (Exception ex)
+                {
+                    // Hiển thị thông báo lỗi nếu có lỗi xảy ra
+                    MessageBox.Show($"Error embedding file: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
         }
 
         private void buttonXuatFileAn_Click(object sender, EventArgs e)
@@ -96,6 +128,21 @@ namespace HideFilePDF
             else if (textBoxMatKhau.Text == "")
             {
                 MessageBox.Show("Vui lòng nhập mật khẩu", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            else
+            {
+                byte[] salt = file.GetSalt(fileName);
+                string hashedPassword = file.GetHashedPassword(fileName);
+                if (encryptDecrypt.VerifyPassword(textBoxMatKhau.Text, hashedPassword,salt))
+                {
+                    string outputFilePath = Path.Combine(Path.GetDirectoryName(pdfPath), "output.pdf");
+                    file.ExportFile(fileName, outputFilePath, hashedPassword, salt);
+                }
+                else
+                {
+                    MessageBox.Show("Vui lòng nhập mật khẩu chính xác", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+                }
             }
         }
 
@@ -128,20 +175,9 @@ namespace HideFilePDF
         {
             // Xóa danh sách hiện tại (nếu có)
             flowLayoutPanelListFileHide.Controls.Clear();
-            FileProcessing fProcess = new FileProcessing();
+            //FileProcessing fProcess = new FileProcessing();
             //List<string> files = fProcess.GetFilesFromFAT();
-            List<string> files = new List<string>
-            {
-                @"C:\Documents\File1.txt",
-                @"D:\Images\Image1.jpg",
-                @"E:\Documents\File2.docx",
-                @"F:\Videos\Video1.mp4",
-                @"C:\Documents\File2.txt",
-                @"D:\Images\Image2.jpg",
-                @"E:\Documents\File3.docx",
-                @"F:\Videos\Video2.mp4",
-                // Thêm các đường dẫn tệp tin khác nếu cần
-            };
+            List<string> files = file.GetFilesFromFAT();
             foreach (string filePath in files)
             {
                 // Tạo Panel chứa TextBox và Button
@@ -181,6 +217,8 @@ namespace HideFilePDF
                 {
                     // Xử lý sự kiện khi nút được nhấn
                     fileName = fileNameButton.Text;
+                    file.DeleteFile(fileName);
+
                 };
                 // Tạo Button chứa options thay đổi mật khẩu
                 Button thaydoiPassFileButton = new Button();
