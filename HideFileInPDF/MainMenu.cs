@@ -135,8 +135,34 @@ namespace HideFilePDF
                 string hashedPassword = file.GetHashedPassword(fileName);
                 if (encryptDecrypt.VerifyPassword(textBoxMatKhau.Text, hashedPassword,salt))
                 {
-                    string outputFilePath = Path.Combine(Path.GetDirectoryName(pdfPath), "output.pdf");
-                    file.ExportFile(fileName, outputFilePath, hashedPassword, salt);
+                    string selectedFileName = fileName;
+                    if (selectedFileName != null)
+                    {
+                        using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+                        {
+                            saveFileDialog.Title = "Chọn nơi để Export file";
+                            saveFileDialog.Filter = "All Files|*.*";
+                            // Xác định đuôi file của file được chọn và thiết lập Filter tương ứng trong SaveFileDialog
+                            string fileExtension = Path.GetExtension(selectedFileName);
+                            if (!string.IsNullOrEmpty(fileExtension))
+                            {
+                                saveFileDialog.Filter = $"{fileExtension} Files|*{fileExtension}|All Files|*.*";
+                            }
+                            if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                            {
+                                string exportFilePath = saveFileDialog.FileName;
+
+                                // Truyền tên file cần xuất vào phương thức ExportFile
+                                file.ExportFile(fileName, exportFilePath, hashedPassword, salt);
+                            }
+                        }
+
+                    }
+                    else
+                    {
+                        MessageBox.Show("Không có file được chọn.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }                   
                 }
                 else
                 {

@@ -136,7 +136,8 @@ namespace libraryFileProcessing
                     if (entryOffset == metadataPosition)
                     {
                         byte[] entryData = GenerateEntry(fileName, fileSize, iv, salt, hashedPassword); // Độ dài của mỗi entry FAT
-                        ModifyFirstByteFAT(entryData);
+                        fs.Seek(entryOffset, SeekOrigin.Begin);
+                        fs.Write(entryData, 0, 1);
 
                         entryOffset = eofPosition;
                         fs.Seek(entryOffset, SeekOrigin.Begin);
@@ -407,7 +408,6 @@ namespace libraryFileProcessing
                 return fileEntry.hashedPassword;
             }
         }
-
         private long GetStartPositionOfFileName(FileStream fileSystemStream, string fileName)
         {
             long currentPosition = metadataPosition;
@@ -474,7 +474,6 @@ namespace libraryFileProcessing
             fileStream.Seek(position, SeekOrigin.Begin);
             fileStream.Write(emptyBuffer, 0, emptyBuffer.Length);
         }
-
         private byte[] ReadDataFromFile(FileStream fileStream, long position, int size)
         {
             byte[] buffer = new byte[size];
@@ -482,7 +481,6 @@ namespace libraryFileProcessing
             fileStream.Read(buffer, 0, buffer.Length);
             return buffer;
         }
-
         private void WriteDataToFile(FileStream fileStream, long position, byte[] data, int offset = 0)
         {
             fileStream.Seek(position, SeekOrigin.Begin);
