@@ -11,6 +11,7 @@ using System.Drawing.Drawing2D;
 using libraryEncryptDecrypt;
 using System.Reflection;
 using System.Security.Policy;
+using System.Drawing.Design;
 
 namespace libraryFileProcessing
 {
@@ -30,7 +31,7 @@ namespace libraryFileProcessing
         private int metadataPosition;
         // Find the position of the last occurrence of "%EOF" in the PDF content
         private static int eofPosition;
-        private int NotDataSize = eofPosition + FATSize;
+        private int NotDataSize;
 
         private List<(string FileName, long StartByte, long FileSize, byte[] iv, byte[] salt, string hashedPassword)> FAT;
 
@@ -47,6 +48,7 @@ namespace libraryFileProcessing
             pdfBytes = File.ReadAllBytes(pdfFilePath);
             metadataPosition = FindBytes(pdfBytes, Encoding.ASCII.GetBytes("/Info"), false, 1);
             eofPosition = FindBytes(pdfBytes, Encoding.ASCII.GetBytes("%EOF"), false, 2);
+            NotDataSize = eofPosition + FATSize;
             FAT.Clear(); // Xóa dữ liệu cũ trong bảng FAT
         }
 
@@ -138,7 +140,7 @@ namespace libraryFileProcessing
 
                         entryOffset = eofPosition;
                         fs.Seek(entryOffset, SeekOrigin.Begin);
-                        fs.Write(entryData, 1, entryData.Length);
+                        fs.Write(entryData, 1, entryData.Length - 1 );
                         FAT.Add((fileName, PDFSize, fileSize, iv, salt, hashedPassword));
                     }
                     else
@@ -275,31 +277,33 @@ namespace libraryFileProcessing
         }
         private long GetStartPositionForNewEntry(FileStream fileSystemStream)
         {
-            if (!CheckFAT())
+            long currentPosition = eofPosition;
+            byte[] buffer = new byte[BlockSize - 1];
+            int bytesRead = ReadBlock(fileSystemStream, currentPosition, buffer);
+            // Nếu block hiện tại là block trống, trả về vị trí bắt đầu của block
+            if (IsBlockEmpty(buffer, bytesRead))
             {
                 return metadataPosition;
             }
-            else
+
+            currentPosition = eofPosition + BlockSize - 1;
+            // Lặp qua các block để tìm vị trí trống đầu tiên
+            while (currentPosition < NotDataSize)
             {
-                long currentPosition = eofPosition + BlockSize - 1;
-                // Lặp qua các block để tìm vị trí trống đầu tiên
-                while (currentPosition < NotDataSize)
+                buffer = new byte[BlockSize];
+                bytesRead = ReadBlock(fileSystemStream, currentPosition, buffer);
+
+                // Nếu block hiện tại là block trống, trả về vị trí bắt đầu của block
+                if (IsBlockEmpty(buffer, bytesRead))
                 {
-                    byte[] buffer = new byte[BlockSize];
-                    int bytesRead = ReadBlock(fileSystemStream, currentPosition, buffer);
-
-                    // Nếu block hiện tại là block trống, trả về vị trí bắt đầu của block
-                    if (IsBlockEmpty(buffer, bytesRead))
-                    {
-                        return currentPosition;
-                    }
-
-                    currentPosition += BlockSize;
+                    return currentPosition;
                 }
 
-                // Nếu không tìm thấy không gian trống, trả về vị trí cuối cùng của FAT
-                return NotDataSize;
+                currentPosition += BlockSize;
             }
+
+            // Nếu không tìm thấy không gian trống, trả về vị trí cuối cùng của FAT
+            return NotDataSize;
         }
 
         public void EmbedFileInPDF(string inputFile, string hashedPassword, byte[] salt)
