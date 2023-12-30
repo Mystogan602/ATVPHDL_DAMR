@@ -52,12 +52,9 @@ namespace libraryFileProcessing
 
         public bool CheckFAT()
         {
-            // Read the content of the original and modified PDFs
-            byte[] originalPdfBytes = File.ReadAllBytes(pdfFilePath);
-
             // Check if the metadata position and the next byte in the modified PDF differ from the expected value
             byte expectedMetadataValue = 32; // Assuming the initial value is 20 (space character)
-            byte byteMetadataPos = originalPdfBytes[metadataPosition];
+            byte byteMetadataPos = pdfBytes[metadataPosition];
             if (byteMetadataPos != expectedMetadataValue)
             {
                 // Byte at metadataPosition is different, indicating modification
@@ -66,7 +63,7 @@ namespace libraryFileProcessing
             else
             {
                 // Byte at metadataPosition is equal to expected value, check next byte
-                if (originalPdfBytes[metadataPosition + 1] == expectedMetadataValue)
+                if (pdfBytes[metadataPosition + 1] == expectedMetadataValue)
                 {
                     return true;
                 }
@@ -74,7 +71,7 @@ namespace libraryFileProcessing
                 {
                     if (eofPosition < PDFSize)
                     {
-                        return originalPdfBytes[eofPosition] == 0;
+                        return pdfBytes[eofPosition] == 0;
                     }
                     else
                     {
