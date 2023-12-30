@@ -23,7 +23,7 @@ namespace HideFilePDF
         private static string pdfPath = null;
         private string filePath = null;
         private FileProcessing file=new FileProcessing();
-        private EncryptDecrypt encryptDecrypt= new EncryptDecrypt();
+        private EncryptDecrypt encryptDecrypt;
         public MainMenu()
         {
             InitializeComponent();
@@ -56,8 +56,8 @@ namespace HideFilePDF
                 labelChonFilePDFCanAn.ForeColor = SystemColors.ControlText;
                 FileInfo PDFInfo = new FileInfo(pdfPath);
                 long PDFSize = PDFInfo.Length;
-                file.SelectFilePDF(PDFSize, filePath);
-                
+                file.SelectFilePDF(PDFSize, pdfPath);
+                encryptDecrypt = new EncryptDecrypt(file);
                 if (!file.CheckFAT())
                 {
                     file.GenerateFAT();

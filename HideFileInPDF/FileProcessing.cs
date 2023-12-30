@@ -16,7 +16,7 @@ namespace libraryFileProcessing
 {
     public class FileProcessing
     {
-        private EncryptDecrypt encryptDecrypt = new EncryptDecrypt();
+        private EncryptDecrypt encryptDecrypt;
 
         public const int BlockSize = 512;//byte
         public const int FATSize = 32 * BlockSize; // Kích thước của phần FAT (ví dụ: 16KB)
@@ -37,7 +37,7 @@ namespace libraryFileProcessing
         public FileProcessing()
         {
             FAT = new List<(string, long, long, byte[], byte[], string)>();
-           
+            encryptDecrypt = new EncryptDecrypt(this);
         }
 
         public void SelectFilePDF(long size, string filePath)
@@ -48,7 +48,6 @@ namespace libraryFileProcessing
             metadataPosition = FindBytes(pdfBytes, Encoding.ASCII.GetBytes("/Info"), false, 1);
             eofPosition = FindBytes(pdfBytes, Encoding.ASCII.GetBytes("%EOF"), false, 2);
             FAT.Clear(); // Xóa dữ liệu cũ trong bảng FAT
-            ReadFAT();
         }
 
         public bool CheckFAT()
@@ -166,7 +165,7 @@ namespace libraryFileProcessing
                 byte[] fatData = new byte[FATSize];
                 int bytesRead = fs.Read(fatData, 0, 1);
                 fs.Seek(eofPosition, SeekOrigin.Begin);
-                bytesRead += fs.Read(fatData, 1, fatData.Length);
+                bytesRead += fs.Read(fatData, 1, fatData.Length-1);
 
                 // Kiểm tra xem có đọc đủ dữ liệu không
                 if (bytesRead == FATSize)
@@ -187,7 +186,7 @@ namespace libraryFileProcessing
                         Array.Copy(entryData, 256 + 16 + 32, iv, 0, 32);// Đọc iv
                         Array.Copy(entryData, 256 + 16 + 32 * 2, salt, 0, 32); // Đọc salt
                         string hashedPassword = Encoding.UTF8.GetString(entryData, 256 + 16 + 3*32,32).TrimEnd('\0'); // Đọc passwordHash
-                        if (!string.IsNullOrEmpty(fileName))
+                        if (!string.IsNullOrEmpty(fileName) && fileName != " ")
                         {
                             // Thêm thông tin vào bảng FAT
                             FAT.Add((fileName, startByte, fileSize, iv, salt,hashedPassword));
@@ -202,6 +201,7 @@ namespace libraryFileProcessing
         }
         public List<string> GetFilesFromFAT()
         {
+            ReadFAT();
             List<string> fileNames = new List<string>();
 
             foreach (var entry in FAT)

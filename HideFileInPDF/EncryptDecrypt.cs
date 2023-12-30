@@ -12,9 +12,9 @@ namespace libraryEncryptDecrypt
 {
     public class EncryptDecrypt
     {
-        private FileProcessing file=new FileProcessing();
-        public EncryptDecrypt() {
-
+        private FileProcessing fileP;
+        public EncryptDecrypt(FileProcessing file) {
+            fileP = file;
         }
         public byte[] CreateSalt()
         {
@@ -83,7 +83,7 @@ namespace libraryEncryptDecrypt
                 // Encrypt the file content
                 byte[] encryptedBytes = EncryptFileContent(inputFile, aesAlg);
 
-                file.WriteFAT(inputFile, aesAlg.IV, salt, hashedPassword);
+                fileP.WriteFAT(inputFile, aesAlg.IV, salt, hashedPassword);
 
                 return encryptedBytes;
             }
@@ -118,7 +118,7 @@ namespace libraryEncryptDecrypt
                 aesAlg.Key = key;
 
                 // Extract IV from the beginning of the encrypted file
-                aesAlg.IV = file.GetIV(fileName);
+                aesAlg.IV = fileP.GetIV(fileName);
 
                 // Decrypt the content (excluding IV)
                 byte[] decryptedBytes = DecryptFileContent(encryptedFile, aesAlg);
