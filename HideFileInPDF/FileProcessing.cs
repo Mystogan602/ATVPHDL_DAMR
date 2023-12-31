@@ -49,8 +49,17 @@ namespace libraryFileProcessing
             metadataPosition = FindBytes(pdfBytes, Encoding.ASCII.GetBytes("/Info"), false, 1);
             eofPosition = FindBytes(pdfBytes, Encoding.ASCII.GetBytes("%EOF"), true, 1);
             NotDataSize = eofPosition + FATSize;
-
-            if (CheckFAT())
+            if (metadataPosition == -1)
+            {
+                MessageBox.Show("Invalid PDF format (missing metadata).", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            if (eofPosition == -1)
+            {
+                MessageBox.Show("Invalid PDF format (missing %EOF).", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+                if (CheckFAT())
             {
                 NotDataSize -= 1;
             }
@@ -139,15 +148,7 @@ namespace libraryFileProcessing
         }
         public void GenerateFAT()
         {
-            if (metadataPosition == -1)
-            {
-                MessageBox.Show("Invalid PDF format (missing metadata).", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-            if (eofPosition == -1)
-            {
-                MessageBox.Show("Invalid PDF format (missing %EOF).", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+
             // Mở tệp để ghi nội dung
             using (FileStream fileStream = new FileStream(pdfFilePath, FileMode.Open, FileAccess.ReadWrite))
             {
@@ -230,6 +231,16 @@ namespace libraryFileProcessing
         }
         public void ReadFAT()
         {
+            if (metadataPosition == -1)
+            {
+                MessageBox.Show("Invalid PDF format (missing metadata).", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            if (eofPosition == -1)
+            {
+                MessageBox.Show("Invalid PDF format (missing %EOF).", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
             // Mở file hệ thống để đọc bảng FAT
             using (FileStream fs = new FileStream(pdfFilePath, FileMode.Open, FileAccess.Read))
             {
