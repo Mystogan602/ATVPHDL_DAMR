@@ -604,6 +604,18 @@ namespace libraryFileProcessing
                 MessageBox.Show($"Lỗi khi đổi mật khẩu: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+        public bool CheckFileName(string fileName)
+        {
+            var fileEntry = FAT.FirstOrDefault(entry => entry.FileName == fileName);
+            if (fileEntry == default)
+            {
+                return false;
+            }
+            else
+            {
+                return true;
+            }
+        }
 
     }
 }

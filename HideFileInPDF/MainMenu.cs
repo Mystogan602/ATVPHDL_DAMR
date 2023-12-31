@@ -21,7 +21,7 @@ namespace HideFilePDF
         private static string fileName = null;
         private static string pdfPath = null;
         private string filePath = null;
-        private FileProcessing file=new FileProcessing();
+        private FileProcessing file = new FileProcessing();
         private EncryptDecrypt encryptDecrypt = new EncryptDecrypt();
         public MainMenu()
         {
@@ -49,9 +49,9 @@ namespace HideFilePDF
                 pdfPath = openFileDialog.FileName;
 
                 // Lấy tên file và đuôi
-                string fileName = Path.GetFileName(pdfPath);
+                string fName = Path.GetFileName(pdfPath);
                 // Hiển thị tên file
-                labelChonFilePDFCanAn.Text = fileName;
+                labelChonFilePDFCanAn.Text = fName;
                 labelChonFilePDFCanAn.ForeColor = SystemColors.ControlText;
                 FileInfo PDFInfo = new FileInfo(pdfPath);
                 long PDFSize = PDFInfo.Length;
@@ -70,8 +70,8 @@ namespace HideFilePDF
             {
                 filePath = openFileDialog.FileName;
                 // Lấy tên file 
-                string fileName = Path.GetFileName(filePath);
-                labelChonFilePDFDeAn.Text = fileName;
+                string fName = Path.GetFileName(filePath);
+                labelChonFilePDFDeAn.Text = fName;
                 labelChonFilePDFDeAn.ForeColor = SystemColors.ControlText;
             }
         }
@@ -102,14 +102,22 @@ namespace HideFilePDF
                     {
                         file.GenerateFAT();
                     }
-                    byte[] salt = encryptDecrypt.CreateSalt();
-                    string hashedPassword = encryptDecrypt.HashPassword(textBoxMatKhau.Text, salt);
-                    byte[] fileData = File.ReadAllBytes(filePath);
-                    byte[] fileBytes = encryptDecrypt.EncryptFile(fileData, hashedPassword, salt);
-                    FileInfo PDFInfo = new FileInfo(pdfPath);
-                    long PDFSize = PDFInfo.Length;
-                    file.WriteFATAndData(filePath, PDFSize, fileBytes, salt, hashedPassword);
-                    DisplayFiles(pdfPath);
+                    if (file.CheckFileName(labelChonFilePDFDeAn.Text) == true)
+                    {
+                        MessageBox.Show("Đã tồn tại tên file giống, nhập file khác hoặc đổi tên file !", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
+                    else
+                    {
+                        byte[] salt = encryptDecrypt.CreateSalt();
+                        string hashedPassword = encryptDecrypt.HashPassword(textBoxMatKhau.Text, salt);
+                        byte[] fileData = File.ReadAllBytes(filePath);
+                        byte[] fileBytes = encryptDecrypt.EncryptFile(fileData, hashedPassword, salt);
+                        FileInfo PDFInfo = new FileInfo(pdfPath);
+                        long PDFSize = PDFInfo.Length;
+                        file.WriteFATAndData(filePath, PDFSize, fileBytes, salt, hashedPassword);
+                        DisplayFiles(pdfPath);
+                    }
+
                 }
                 catch (Exception ex)
                 {
@@ -125,11 +133,15 @@ namespace HideFilePDF
             {
                 MessageBox.Show("Vui lòng nhập mật khẩu", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
+            else if (fileName == null)
+            {
+                MessageBox.Show("Vui lòng chọn file ẩn trong danh sách để xuất", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
             else
             {
                 byte[] salt = file.GetSalt(fileName);
                 string hashedPassword = file.GetHashedPassword(fileName);
-                if (encryptDecrypt.VerifyPassword(textBoxMatKhau.Text, hashedPassword,salt))
+                if (encryptDecrypt.VerifyPassword(textBoxMatKhau.Text, hashedPassword, salt))
                 {
                     string selectedFileName = fileName;
                     if (selectedFileName != null)
@@ -158,7 +170,7 @@ namespace HideFilePDF
                     {
                         MessageBox.Show("Không có file được chọn.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         return;
-                    }                   
+                    }
                 }
                 else
                 {
@@ -266,7 +278,7 @@ namespace HideFilePDF
                     string OldHashedPassword = file.GetHashedPassword(fileName);
                     if (encryptDecrypt.VerifyPassword(textBoxMatKhau.Text, OldHashedPassword, salt))
                     {
-                        if (textBoxMatKhau.Text==textBoxNewPassword.Text)
+                        if (textBoxMatKhau.Text == textBoxNewPassword.Text)
                         {
                             MessageBox.Show("Mật khẩu mới phải khác mật khẩu cũ", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                             return;
@@ -296,8 +308,8 @@ namespace HideFilePDF
 
             // Kích thước của FlowLayoutPanel sẽ tự động thay đổi để hiển thị thanh cuộn nếu cần
             flowLayoutPanelListFileHide.AutoScroll = true;
+            //Làm mới fileName
+            fileName = null;
         }
-
-
     }
 }
