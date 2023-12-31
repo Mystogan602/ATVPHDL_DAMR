@@ -38,6 +38,7 @@ namespace libraryEncryptDecrypt
         public bool VerifyPassword(string inputPassword, string hashedPassword, byte[] salt)
         {
             // Băm mật khẩu nhập vào với salt từ tệp tin và so sánh với mật khẩu băm từ tệp tin
+            string checkpass = HashPassword(inputPassword, salt);
             return hashedPassword == HashPassword(inputPassword, salt);
         }
         public byte[] ReencryptedFile(string oldHashedPassword, string newHashedPassword, byte[] encryptedFileContent, byte[] salt)

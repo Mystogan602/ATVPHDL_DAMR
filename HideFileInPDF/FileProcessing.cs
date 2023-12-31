@@ -187,10 +187,10 @@ namespace libraryFileProcessing
         {
             byte[] entryData = new byte[BlockSize]; // Độ dài của mỗi entry FAT
             BitConverter.GetBytes(fileSize).CopyTo(entryData, 0); // File size
-            Encoding.UTF8.GetBytes(fileName).CopyTo(entryData, 4); // Tên file
-            BitConverter.GetBytes(StartByte).CopyTo(entryData, 260); // Start byte
-            Array.Copy(salt, 0, entryData, 264, salt.Length);//salt
-            Encoding.UTF8.GetBytes(hashedPassword).CopyTo(entryData, 280); // Password hash
+            Encoding.UTF8.GetBytes(fileName).CopyTo(entryData, 8); // Tên file
+            BitConverter.GetBytes(StartByte).CopyTo(entryData, 264); // Start byte
+            Array.Copy(salt, 0, entryData, 272, salt.Length);//salt
+            Encoding.UTF8.GetBytes(hashedPassword).CopyTo(entryData, 288); // Password hash
             return entryData;
         }
 
@@ -226,7 +226,7 @@ namespace libraryFileProcessing
                     MessageBox.Show("Đã Import thêm file.", "Thành công", MessageBoxButtons.OK);
                 }
             }
-            EmbedFileInPDF(inputFile, hashedPassword, salt, fileBytes);
+            EmbedFileInPDF(inputFile, fileBytes);
         }
         public void ReadFAT()
         {
@@ -253,11 +253,11 @@ namespace libraryFileProcessing
 
                         // Đọc thông tin từ mỗi entry
                         long fileSize = BitConverter.ToInt32(entryData, 0); // Đọc file size
-                        string fileName = Encoding.UTF8.GetString(entryData, 4, 256).TrimEnd('\0'); // Đọc tên file
-                        long startByte = BitConverter.ToInt32(entryData, 260); // Đọc start byte
+                        string fileName = Encoding.UTF8.GetString(entryData, 8, 256).TrimEnd('\0'); // Đọc tên file
+                        long startByte = BitConverter.ToInt32(entryData, 264); // Đọc start byte
                         byte[] salt = new byte[16];
-                        Array.Copy(entryData, 264, salt, 0, 16); // Đọc salt
-                        string hashedPassword = Encoding.UTF8.GetString(entryData, 280,64).TrimEnd('\0'); // Đọc passwordHash
+                        Array.Copy(entryData, 272, salt, 0, 16); // Đọc salt
+                        string hashedPassword = Encoding.UTF8.GetString(entryData, 288,64).TrimEnd('\0'); // Đọc passwordHash
                         if (!string.IsNullOrEmpty(fileName) && fileName != " ")
                         {
                             // Thêm thông tin vào bảng FAT
@@ -341,7 +341,7 @@ namespace libraryFileProcessing
             return NotDataSize;
         }
 
-        public void EmbedFileInPDF(string inputFile, string hashedPassword, byte[] salt, byte[] fileBytes)
+        public void EmbedFileInPDF(string inputFile, byte[] fileBytes)
         {
             if (!File.Exists(inputFile))
             {
@@ -354,6 +354,12 @@ namespace libraryFileProcessing
                 // Ghi file vào cuối tệp
                 fileStream.Write(fileBytes, 0, fileBytes.Length);
             }
+            // phá file được ở ngoài hệ thống 
+            using (FileStream fileStream = new FileStream(inputFile, FileMode.Open, FileAccess.Write))
+            {
+                ClearDataAtPosition(fileStream,0,fileStream.Length);
+            }
+
         }
         public void ExportFile(string fileName, string exportFilePath, string hashedPassword, byte[] salt)
         {
@@ -445,7 +451,7 @@ namespace libraryFileProcessing
             // If the file name is not found, return the end of the file
             return fileSystemStream.Length;
         }
-        private void ClearDataAtPosition(FileStream fileStream, long position, int size)
+        private void ClearDataAtPosition(FileStream fileStream, long position, long size)
         {
             byte[] emptyBuffer = new byte[size];
             if (position == metadataPosition)
@@ -541,7 +547,7 @@ namespace libraryFileProcessing
                         //viết lại bảng fat
                         
                         nextFile.StartByte = startPosition;
-                        BitConverter.GetBytes(nextFile.StartByte).CopyTo(bufferEntry, 260); // Start byte
+                        BitConverter.GetBytes(nextFile.StartByte).CopyTo(bufferEntry, 264); // Start byte
                         WriteDataToFile(fileSystemStream, startPositionOfFileName, bufferEntry);
 
                         // Cập nhật vị trí của file trong bảng FAT
@@ -593,7 +599,7 @@ namespace libraryFileProcessing
                     //viết lại hashed pass trong bảng fat
                     fileEntry.hashedPassword=newHashedPassword;
                     byte[] bufferEntry = ReadDataFromFile(fileSystemStream, startPositionOfFileName, BlockSize);
-                    Encoding.UTF8.GetBytes(fileEntry.hashedPassword).CopyTo(bufferEntry, 280);
+                    Encoding.UTF8.GetBytes(fileEntry.hashedPassword).CopyTo(bufferEntry, 288);
                     WriteDataToFile(fileSystemStream, startPositionOfFileName, bufferEntry);
                 }
 
