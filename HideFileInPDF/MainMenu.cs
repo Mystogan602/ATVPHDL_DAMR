@@ -30,9 +30,9 @@ namespace HideFilePDF
         }
         private void InitializeIU()
         {
-            labelChonFilePDFCanAn.Text = "Đường dẫn File cần ẩn";
+            labelChonFilePDFCanAn.Text = "Đường dẫn File PDF để ẩn dữ liệu";
             labelChonFilePDFCanAn.ForeColor = Color.Gray;
-            labelChonFilePDFDeAn.Text = "Đường dẫn File PDF ẩn dữ liệu";
+            labelChonFilePDFDeAn.Text = "Đường dẫn File cần ẩn";
             labelChonFilePDFDeAn.ForeColor = Color.Gray;
         }
         public static string getFileName()
