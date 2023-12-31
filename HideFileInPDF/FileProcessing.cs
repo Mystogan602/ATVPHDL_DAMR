@@ -47,11 +47,20 @@ namespace libraryFileProcessing
             PDFSize = size;
             pdfBytes = File.ReadAllBytes(pdfFilePath);
             metadataPosition = FindBytes(pdfBytes, Encoding.ASCII.GetBytes("/Info"), false, 1);
-            eofPosition = FindBytes(pdfBytes, Encoding.ASCII.GetBytes("%EOF"), false, 2);
+            eofPosition = FindBytes(pdfBytes, Encoding.ASCII.GetBytes("%EOF"), true, 1);
             NotDataSize = eofPosition + FATSize;
+
             if (CheckFAT())
             {
                 NotDataSize -= 1;
+            }
+            else
+            {
+                using (FileStream fileSystemStream = new FileStream(pdfFilePath, FileMode.Open, FileAccess.ReadWrite))
+                {
+                    fileSystemStream.SetLength(eofPosition);
+                    PDFSize = eofPosition;
+                }
             }
         }
         private static int FindBytes(byte[] haystack, byte[] needle, bool reverse = false, int positionNeedle = 1)
@@ -107,13 +116,25 @@ namespace libraryFileProcessing
         }
         public bool CheckFAT()
         {
-            if (eofPosition < PDFSize)
+            // Check if the metadata position and the next byte in the modified PDF differ from the expected value
+            byte expectedMetadataValue = 32; // Assuming the initial value is 20 (space character)
+            byte byteMetadataPos = pdfBytes[metadataPosition];
+            if (byteMetadataPos != expectedMetadataValue)
             {
+                // Byte at metadataPosition is different, indicating modification
                 return true;
             }
             else
             {
-                return false;
+                // Byte at metadataPosition is equal to expected value, check next byte
+                if (pdfBytes[metadataPosition + 1] == expectedMetadataValue)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
             }
         }
         public void GenerateFAT()
@@ -160,7 +181,7 @@ namespace libraryFileProcessing
             }
             PDFSize = UpdatePDFSize();
             eofPosition += 1;
-
+            pdfBytes = File.ReadAllBytes(pdfFilePath);
         }
         private byte[] GenerateEntry(string fileName,long StartByte, long fileSize, byte[] salt, string hashedPassword)
         {
