@@ -8,7 +8,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-//using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 using System.Diagnostics;
 using libraryFileProcessing;
 using libraryEncryptDecrypt;
@@ -23,7 +22,7 @@ namespace HideFilePDF
         private static string pdfPath = null;
         private string filePath = null;
         private FileProcessing file=new FileProcessing();
-        private EncryptDecrypt encryptDecrypt;
+        private EncryptDecrypt encryptDecrypt = new EncryptDecrypt();
         public MainMenu()
         {
             InitializeComponent();
@@ -57,11 +56,7 @@ namespace HideFilePDF
                 FileInfo PDFInfo = new FileInfo(pdfPath);
                 long PDFSize = PDFInfo.Length;
                 file.SelectFilePDF(PDFSize, pdfPath);
-                encryptDecrypt = new EncryptDecrypt(file);
-                if (!file.CheckFAT())
-                {
-                    file.GenerateFAT();
-                }
+
                 DisplayFiles(pdfPath);
             }
         }
@@ -103,13 +98,18 @@ namespace HideFilePDF
             {
                 try
                 {
+                    if (!file.CheckFAT())
+                    {
+                        file.GenerateFAT();
+                    }
                     byte[] salt = encryptDecrypt.CreateSalt();
                     string hashedPassword = encryptDecrypt.HashPassword(textBoxMatKhau.Text, salt);
-                    // Nhúng văn bản vào tệp PDF
-                    file.EmbedFileInPDF(filePath, hashedPassword, salt);
-
-                    // Hiển thị thông báo thành công
-                    MessageBox.Show("File embedded successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    byte[] fileData = File.ReadAllBytes(filePath);
+                    byte[] fileBytes = encryptDecrypt.EncryptFile(fileData, hashedPassword, salt);
+                    FileInfo PDFInfo = new FileInfo(pdfPath);
+                    long PDFSize = PDFInfo.Length;
+                    file.WriteFATAndData(filePath, PDFSize, fileBytes, salt, hashedPassword);
+                    DisplayFiles(pdfPath);
                 }
                 catch (Exception ex)
                 {
@@ -121,11 +121,7 @@ namespace HideFilePDF
 
         private void buttonXuatFileAn_Click(object sender, EventArgs e)
         {
-            if (labelChonFilePDFDeAn.Text == "Đường dẫn File PDF ẩn dữ liệu")
-            {
-                MessageBox.Show("Vui lòng nhập đường dẫn File PDF ẩn dữ liệu.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-            else if (textBoxMatKhau.Text == "")
+            if (textBoxMatKhau.Text == "")
             {
                 MessageBox.Show("Vui lòng nhập mật khẩu", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
@@ -244,7 +240,7 @@ namespace HideFilePDF
                     // Xử lý sự kiện khi nút được nhấn
                     fileName = fileNameButton.Text;
                     file.DeleteFile(fileName);
-
+                    DisplayFiles(pdfPath);
                 };
                 // Tạo Button chứa options thay đổi mật khẩu
                 Button thaydoiPassFileButton = new Button();
@@ -254,8 +250,36 @@ namespace HideFilePDF
                 thaydoiPassFileButton.Width = 115;
                 thaydoiPassFileButton.Click += (sender, e) =>
                 {
+                    if (textBoxMatKhau.Text == "")
+                    {
+                        MessageBox.Show("Vui lòng nhập mật khẩu", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                    if (textBoxNewPassword.Text == "")
+                    {
+                        MessageBox.Show("Vui lòng nhập mật khẩu mới", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
                     // Xử lý sự kiện khi nút được nhấn
                     fileName = fileNameButton.Text;
+                    byte[] salt = file.GetSalt(fileName);
+                    string OldHashedPassword = file.GetHashedPassword(fileName);
+                    if (encryptDecrypt.VerifyPassword(textBoxMatKhau.Text, OldHashedPassword, salt))
+                    {
+                        if (textBoxMatKhau.Text==textBoxNewPassword.Text)
+                        {
+                            MessageBox.Show("Mật khẩu mới phải khác mật khẩu cũ", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            return;
+                        }
+                        string newHashedPassword = encryptDecrypt.HashPassword(textBoxNewPassword.Text, salt);
+                        file.UpdateDataAfterChangePassword(fileName, OldHashedPassword, newHashedPassword, salt);
+                        DisplayFiles(pdfPath);
+                    }
+                    else
+                    {
+                        MessageBox.Show("Mật khẩu cũ không chính xác", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+                    }
                 };
 
                 // Thêm TextBox và Button vào TableLayoutPanel

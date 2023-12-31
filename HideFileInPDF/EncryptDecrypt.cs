@@ -12,10 +12,6 @@ namespace libraryEncryptDecrypt
 {
     public class EncryptDecrypt
     {
-        private FileProcessing fileP;
-        public EncryptDecrypt(FileProcessing file) {
-            fileP = file;
-        }
         public byte[] CreateSalt()
         {
             // Tạo một mảng byte có kích thước là 16
@@ -44,33 +40,26 @@ namespace libraryEncryptDecrypt
             // Băm mật khẩu nhập vào với salt từ tệp tin và so sánh với mật khẩu băm từ tệp tin
             return hashedPassword == HashPassword(inputPassword, salt);
         }
-        //public void ChangePassword(string oldPassword, string newPassword)
-        //{
-        //    using (SHA256 sha256 = SHA256.Create())
-        //    {
-        //        if (CheckPassword(oldPassword))
-        //        {
-        //            byte[] newPasswordHash = new byte[BlockSize];
-        //            // Hash mật khẩu mới
-        //            byte[] enteredPasswordHash = sha256.ComputeHash(Encoding.UTF8.GetBytes(newPassword));
-        //            Array.Copy(enteredPasswordHash, newPasswordHash, enteredPasswordHash.Length);
-        //            // Lưu hashed password mới vào block đầu tiên
-        //            using (FileStream fs = new FileStream(FileSystemFilePath, FileMode.Open, FileAccess.Write))
-        //            {
-        //                fs.Seek(HashedPasswordBlock, SeekOrigin.Begin);
-        //                fs.Write(enteredPasswordHash, 0, enteredPasswordHash.Length);
-        //            }
+        public byte[] ReencryptedFile(string oldHashedPassword, string newHashedPassword, byte[] encryptedFileContent, byte[] salt)
+        {
 
-        //            hashedPassword = newPasswordHash; // Cập nhật hashed password trong bộ nhớ
-        //        }
-        //        else
-        //        {
-        //            MessageBox.Show("Mật khẩu cũ không đúng.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        //        }
-        //    }
-        //}
+            // Decrypt the file content using the old key
+            byte[] decryptedFileContent = DecryptFile(encryptedFileContent, oldHashedPassword,salt);
 
-        public byte[] EncryptFile(string inputFile, string hashedPassword, byte[] salt)
+            // Encrypt the file content using the new key
+            byte[] reencryptedFileContent = EncryptFile(decryptedFileContent, newHashedPassword,salt);
+            
+            return reencryptedFileContent;
+        }
+
+        private byte[] GenerateKey(string hashedPassword, byte[] salt)
+        {
+            using (var deriveBytes = new Rfc2898DeriveBytes(hashedPassword, salt, 10000))
+            {
+                return deriveBytes.GetBytes(32); // 32 bytes for a 256-bit key
+            }
+        }
+        public byte[] EncryptFile(byte[] fileData, string hashedPassword, byte[] salt)
         {
             // Generate encryption key using PBKDF2
             byte[] key = GenerateKey(hashedPassword, salt);
@@ -81,34 +70,28 @@ namespace libraryEncryptDecrypt
                 aesAlg.GenerateIV();
 
                 // Encrypt the file content
-                byte[] encryptedBytes = EncryptFileContent(inputFile, aesAlg);
+                byte[] encryptedBytes = EncryptFileContent(fileData, aesAlg);
+                // Combine IV and encrypted content
+                byte[] result = new byte[aesAlg.IV.Length + encryptedBytes.Length];
+                Array.Copy(aesAlg.IV, result, aesAlg.IV.Length);
+                Array.Copy(encryptedBytes, 0, result, aesAlg.IV.Length, encryptedBytes.Length);
 
-                fileP.WriteFAT(inputFile, aesAlg.IV, salt, hashedPassword);
-
-                return encryptedBytes;
+                return result;
             }
         }
 
-        private byte[] GenerateKey(string hashedPassword, byte[] salt)
+        private byte[] EncryptFileContent(byte[] fileData, Aes aesAlg)
         {
-            using (var deriveBytes = new Rfc2898DeriveBytes(hashedPassword, salt, 10000))
-            {
-                return deriveBytes.GetBytes(32); // 32 bytes for a 256-bit key
-            }
-        }
-
-        private byte[] EncryptFileContent(string inputFile, Aes aesAlg)
-        {
-            using (FileStream fsInput = new FileStream(inputFile, FileMode.Open))
+            using (MemoryStream msInput = new MemoryStream(fileData))
             using (MemoryStream msOutput = new MemoryStream())
             using (CryptoStream cryptoStream = new CryptoStream(msOutput, aesAlg.CreateEncryptor(), CryptoStreamMode.Write))
             {
-                fsInput.CopyTo(cryptoStream);
+                msInput.CopyTo(cryptoStream);
                 cryptoStream.FlushFinalBlock();
                 return msOutput.ToArray();
             }
         }
-        public byte[] DecryptFile(string fileName, byte[] encryptedFile, string hashedPassword, byte[] salt)
+        public byte[] DecryptFile(byte[] encryptedFile, string hashedPassword, byte[] salt)
         {
             // Generate decryption key using PBKDF2
             byte[] key = GenerateKey(hashedPassword, salt);
@@ -118,8 +101,9 @@ namespace libraryEncryptDecrypt
                 aesAlg.Key = key;
 
                 // Extract IV from the beginning of the encrypted file
-                aesAlg.IV = fileP.GetIV(fileName);
-
+                byte[] iv = new byte[aesAlg.IV.Length];
+                Array.Copy(encryptedFile, iv, iv.Length);
+                aesAlg.IV = iv;
                 // Decrypt the content (excluding IV)
                 byte[] decryptedBytes = DecryptFileContent(encryptedFile, aesAlg);
 
