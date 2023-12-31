@@ -28,189 +28,174 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.buttonCHonFilePDFCanAn = new System.Windows.Forms.Button();
-            this.buttonChonFilePDFDeAn = new System.Windows.Forms.Button();
-            this.labelChonFilePDFCanAn = new System.Windows.Forms.Label();
-            this.labelChonFilePDFDeAn = new System.Windows.Forms.Label();
-            this.buttonAn = new System.Windows.Forms.Button();
-            this.buttonXuatFileAn = new System.Windows.Forms.Button();
-            this.labelMatKhau = new System.Windows.Forms.Label();
-            this.textBoxMatKhau = new System.Windows.Forms.TextBox();
-            this.buttonXemFile = new System.Windows.Forms.Button();
-            this.buttonThoat = new System.Windows.Forms.Button();
-            this.flowLayoutPanelListFileHide = new System.Windows.Forms.FlowLayoutPanel();
-            this.label1 = new System.Windows.Forms.Label();
-            this.textBoxNewPassword = new System.Windows.Forms.TextBox();
-            this.SuspendLayout();
+            buttonCHonFilePDFCanAn = new Button();
+            buttonChonFilePDFDeAn = new Button();
+            labelChonFilePDFCanAn = new Label();
+            labelChonFilePDFDeAn = new Label();
+            buttonAn = new Button();
+            buttonXuatFileAn = new Button();
+            labelMatKhau = new Label();
+            textBoxMatKhau = new TextBox();
+            buttonThoat = new Button();
+            flowLayoutPanelListFileHide = new FlowLayoutPanel();
+            label1 = new Label();
+            textBoxNewPassword = new TextBox();
+            SuspendLayout();
             // 
             // buttonCHonFilePDFCanAn
             // 
-            this.buttonCHonFilePDFCanAn.BackColor = System.Drawing.SystemColors.ActiveCaption;
-            this.buttonCHonFilePDFCanAn.Font = new System.Drawing.Font("Times New Roman", 16.2F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.buttonCHonFilePDFCanAn.Location = new System.Drawing.Point(21, 54);
-            this.buttonCHonFilePDFCanAn.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.buttonCHonFilePDFCanAn.Name = "buttonCHonFilePDFCanAn";
-            this.buttonCHonFilePDFCanAn.Size = new System.Drawing.Size(131, 58);
-            this.buttonCHonFilePDFCanAn.TabIndex = 0;
-            this.buttonCHonFilePDFCanAn.Text = "Chọn";
-            this.buttonCHonFilePDFCanAn.UseVisualStyleBackColor = false;
-            this.buttonCHonFilePDFCanAn.Click += new System.EventHandler(this.buttonChonFilePDF_Click);
+            buttonCHonFilePDFCanAn.BackColor = SystemColors.ActiveCaption;
+            buttonCHonFilePDFCanAn.Font = new Font("Times New Roman", 16.2F, FontStyle.Regular, GraphicsUnit.Point);
+            buttonCHonFilePDFCanAn.Location = new Point(21, 54);
+            buttonCHonFilePDFCanAn.Margin = new Padding(3, 4, 3, 4);
+            buttonCHonFilePDFCanAn.Name = "buttonCHonFilePDFCanAn";
+            buttonCHonFilePDFCanAn.Size = new Size(131, 58);
+            buttonCHonFilePDFCanAn.TabIndex = 0;
+            buttonCHonFilePDFCanAn.Text = "Chọn";
+            buttonCHonFilePDFCanAn.UseVisualStyleBackColor = false;
+            buttonCHonFilePDFCanAn.Click += buttonChonFilePDF_Click;
             // 
             // buttonChonFilePDFDeAn
             // 
-            this.buttonChonFilePDFDeAn.BackColor = System.Drawing.SystemColors.ActiveCaption;
-            this.buttonChonFilePDFDeAn.Font = new System.Drawing.Font("Times New Roman", 16.2F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.buttonChonFilePDFDeAn.Location = new System.Drawing.Point(21, 174);
-            this.buttonChonFilePDFDeAn.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.buttonChonFilePDFDeAn.Name = "buttonChonFilePDFDeAn";
-            this.buttonChonFilePDFDeAn.Size = new System.Drawing.Size(131, 58);
-            this.buttonChonFilePDFDeAn.TabIndex = 2;
-            this.buttonChonFilePDFDeAn.Text = "Chọn";
-            this.buttonChonFilePDFDeAn.UseVisualStyleBackColor = false;
-            this.buttonChonFilePDFDeAn.Click += new System.EventHandler(this.buttonChonFileDeAn_Click);
+            buttonChonFilePDFDeAn.BackColor = SystemColors.ActiveCaption;
+            buttonChonFilePDFDeAn.Font = new Font("Times New Roman", 16.2F, FontStyle.Regular, GraphicsUnit.Point);
+            buttonChonFilePDFDeAn.Location = new Point(21, 174);
+            buttonChonFilePDFDeAn.Margin = new Padding(3, 4, 3, 4);
+            buttonChonFilePDFDeAn.Name = "buttonChonFilePDFDeAn";
+            buttonChonFilePDFDeAn.Size = new Size(131, 58);
+            buttonChonFilePDFDeAn.TabIndex = 2;
+            buttonChonFilePDFDeAn.Text = "Chọn";
+            buttonChonFilePDFDeAn.UseVisualStyleBackColor = false;
+            buttonChonFilePDFDeAn.Click += buttonChonFileDeAn_Click;
             // 
             // labelChonFilePDFCanAn
             // 
-            this.labelChonFilePDFCanAn.BackColor = System.Drawing.SystemColors.Control;
-            this.labelChonFilePDFCanAn.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.labelChonFilePDFCanAn.Font = new System.Drawing.Font("Times New Roman", 13.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.labelChonFilePDFCanAn.Location = new System.Drawing.Point(190, 63);
-            this.labelChonFilePDFCanAn.Name = "labelChonFilePDFCanAn";
-            this.labelChonFilePDFCanAn.Size = new System.Drawing.Size(513, 44);
-            this.labelChonFilePDFCanAn.TabIndex = 3;
+            labelChonFilePDFCanAn.BackColor = SystemColors.Control;
+            labelChonFilePDFCanAn.BorderStyle = BorderStyle.FixedSingle;
+            labelChonFilePDFCanAn.Font = new Font("Times New Roman", 13.8F, FontStyle.Regular, GraphicsUnit.Point);
+            labelChonFilePDFCanAn.Location = new Point(190, 63);
+            labelChonFilePDFCanAn.Name = "labelChonFilePDFCanAn";
+            labelChonFilePDFCanAn.Size = new Size(513, 44);
+            labelChonFilePDFCanAn.TabIndex = 3;
             // 
             // labelChonFilePDFDeAn
             // 
-            this.labelChonFilePDFDeAn.BackColor = System.Drawing.SystemColors.Control;
-            this.labelChonFilePDFDeAn.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.labelChonFilePDFDeAn.Font = new System.Drawing.Font("Times New Roman", 13.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.labelChonFilePDFDeAn.Location = new System.Drawing.Point(190, 185);
-            this.labelChonFilePDFDeAn.Name = "labelChonFilePDFDeAn";
-            this.labelChonFilePDFDeAn.Size = new System.Drawing.Size(513, 44);
-            this.labelChonFilePDFDeAn.TabIndex = 4;
+            labelChonFilePDFDeAn.BackColor = SystemColors.Control;
+            labelChonFilePDFDeAn.BorderStyle = BorderStyle.FixedSingle;
+            labelChonFilePDFDeAn.Font = new Font("Times New Roman", 13.8F, FontStyle.Regular, GraphicsUnit.Point);
+            labelChonFilePDFDeAn.Location = new Point(190, 185);
+            labelChonFilePDFDeAn.Name = "labelChonFilePDFDeAn";
+            labelChonFilePDFDeAn.Size = new Size(513, 44);
+            labelChonFilePDFDeAn.TabIndex = 4;
             // 
             // buttonAn
             // 
-            this.buttonAn.BackColor = System.Drawing.SystemColors.ActiveCaption;
-            this.buttonAn.Font = new System.Drawing.Font("Times New Roman", 16.2F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.buttonAn.Location = new System.Drawing.Point(21, 394);
-            this.buttonAn.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.buttonAn.Name = "buttonAn";
-            this.buttonAn.Size = new System.Drawing.Size(163, 58);
-            this.buttonAn.TabIndex = 5;
-            this.buttonAn.Text = "Ẩn";
-            this.buttonAn.UseVisualStyleBackColor = false;
-            this.buttonAn.Click += new System.EventHandler(this.buttonAn_Click);
+            buttonAn.BackColor = SystemColors.ActiveCaption;
+            buttonAn.Font = new Font("Times New Roman", 16.2F, FontStyle.Regular, GraphicsUnit.Point);
+            buttonAn.Location = new Point(21, 394);
+            buttonAn.Margin = new Padding(3, 4, 3, 4);
+            buttonAn.Name = "buttonAn";
+            buttonAn.Size = new Size(163, 58);
+            buttonAn.TabIndex = 5;
+            buttonAn.Text = "Ẩn";
+            buttonAn.UseVisualStyleBackColor = false;
+            buttonAn.Click += buttonAn_Click;
             // 
             // buttonXuatFileAn
             // 
-            this.buttonXuatFileAn.BackColor = System.Drawing.SystemColors.ActiveCaption;
-            this.buttonXuatFileAn.Font = new System.Drawing.Font("Times New Roman", 16.2F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.buttonXuatFileAn.Location = new System.Drawing.Point(190, 394);
-            this.buttonXuatFileAn.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.buttonXuatFileAn.Name = "buttonXuatFileAn";
-            this.buttonXuatFileAn.Size = new System.Drawing.Size(163, 58);
-            this.buttonXuatFileAn.TabIndex = 6;
-            this.buttonXuatFileAn.Text = "Xuất file ẩn";
-            this.buttonXuatFileAn.UseVisualStyleBackColor = false;
-            this.buttonXuatFileAn.Click += new System.EventHandler(this.buttonXuatFileAn_Click);
+            buttonXuatFileAn.BackColor = SystemColors.ActiveCaption;
+            buttonXuatFileAn.Font = new Font("Times New Roman", 16.2F, FontStyle.Regular, GraphicsUnit.Point);
+            buttonXuatFileAn.Location = new Point(268, 394);
+            buttonXuatFileAn.Margin = new Padding(3, 4, 3, 4);
+            buttonXuatFileAn.Name = "buttonXuatFileAn";
+            buttonXuatFileAn.Size = new Size(163, 58);
+            buttonXuatFileAn.TabIndex = 6;
+            buttonXuatFileAn.Text = "Xuất File ẩn";
+            buttonXuatFileAn.UseVisualStyleBackColor = false;
+            buttonXuatFileAn.Click += buttonXuatFileAn_Click;
             // 
             // labelMatKhau
             // 
-            this.labelMatKhau.BackColor = System.Drawing.SystemColors.Control;
-            this.labelMatKhau.Font = new System.Drawing.Font("Times New Roman", 16.2F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.labelMatKhau.Location = new System.Drawing.Point(21, 292);
-            this.labelMatKhau.Name = "labelMatKhau";
-            this.labelMatKhau.Size = new System.Drawing.Size(163, 51);
-            this.labelMatKhau.TabIndex = 7;
-            this.labelMatKhau.Text = "Mật khẩu : ";
+            labelMatKhau.BackColor = SystemColors.Control;
+            labelMatKhau.Font = new Font("Times New Roman", 16.2F, FontStyle.Regular, GraphicsUnit.Point);
+            labelMatKhau.Location = new Point(21, 292);
+            labelMatKhau.Name = "labelMatKhau";
+            labelMatKhau.Size = new Size(163, 51);
+            labelMatKhau.TabIndex = 7;
+            labelMatKhau.Text = "Mật khẩu : ";
             // 
             // textBoxMatKhau
             // 
-            this.textBoxMatKhau.Font = new System.Drawing.Font("Times New Roman", 13.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.textBoxMatKhau.Location = new System.Drawing.Point(190, 293);
-            this.textBoxMatKhau.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.textBoxMatKhau.Name = "textBoxMatKhau";
-            this.textBoxMatKhau.Size = new System.Drawing.Size(513, 34);
-            this.textBoxMatKhau.TabIndex = 8;
-            // 
-            // buttonXemFile
-            // 
-            this.buttonXemFile.BackColor = System.Drawing.SystemColors.ActiveCaption;
-            this.buttonXemFile.Font = new System.Drawing.Font("Times New Roman", 16.2F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.buttonXemFile.Location = new System.Drawing.Point(359, 394);
-            this.buttonXemFile.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.buttonXemFile.Name = "buttonXemFile";
-            this.buttonXemFile.Size = new System.Drawing.Size(163, 58);
-            this.buttonXemFile.TabIndex = 9;
-            this.buttonXemFile.Text = "Xem file";
-            this.buttonXemFile.UseVisualStyleBackColor = false;
+            textBoxMatKhau.Font = new Font("Times New Roman", 13.8F, FontStyle.Regular, GraphicsUnit.Point);
+            textBoxMatKhau.Location = new Point(190, 293);
+            textBoxMatKhau.Margin = new Padding(3, 4, 3, 4);
+            textBoxMatKhau.Name = "textBoxMatKhau";
+            textBoxMatKhau.Size = new Size(513, 34);
+            textBoxMatKhau.TabIndex = 8;
             // 
             // buttonThoat
             // 
-            this.buttonThoat.BackColor = System.Drawing.SystemColors.ActiveCaption;
-            this.buttonThoat.Font = new System.Drawing.Font("Times New Roman", 16.2F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.buttonThoat.Location = new System.Drawing.Point(540, 394);
-            this.buttonThoat.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.buttonThoat.Name = "buttonThoat";
-            this.buttonThoat.Size = new System.Drawing.Size(163, 58);
-            this.buttonThoat.TabIndex = 10;
-            this.buttonThoat.Text = "Thoát";
-            this.buttonThoat.UseVisualStyleBackColor = false;
-            this.buttonThoat.Click += new System.EventHandler(this.buttonThoat_Click);
+            buttonThoat.BackColor = SystemColors.ActiveCaption;
+            buttonThoat.Font = new Font("Times New Roman", 16.2F, FontStyle.Regular, GraphicsUnit.Point);
+            buttonThoat.Location = new Point(540, 394);
+            buttonThoat.Margin = new Padding(3, 4, 3, 4);
+            buttonThoat.Name = "buttonThoat";
+            buttonThoat.Size = new Size(163, 58);
+            buttonThoat.TabIndex = 10;
+            buttonThoat.Text = "Thoát";
+            buttonThoat.UseVisualStyleBackColor = false;
+            buttonThoat.Click += buttonThoat_Click;
             // 
             // flowLayoutPanelListFileHide
             // 
-            this.flowLayoutPanelListFileHide.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.flowLayoutPanelListFileHide.Location = new System.Drawing.Point(728, 69);
-            this.flowLayoutPanelListFileHide.Name = "flowLayoutPanelListFileHide";
-            this.flowLayoutPanelListFileHide.Size = new System.Drawing.Size(545, 383);
-            this.flowLayoutPanelListFileHide.TabIndex = 11;
+            flowLayoutPanelListFileHide.BorderStyle = BorderStyle.FixedSingle;
+            flowLayoutPanelListFileHide.Location = new Point(728, 69);
+            flowLayoutPanelListFileHide.Name = "flowLayoutPanelListFileHide";
+            flowLayoutPanelListFileHide.Size = new Size(545, 383);
+            flowLayoutPanelListFileHide.TabIndex = 11;
             // 
             // label1
             // 
-            this.label1.BackColor = System.Drawing.SystemColors.Control;
-            this.label1.Font = new System.Drawing.Font("Times New Roman", 16.2F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.label1.Location = new System.Drawing.Point(730, 22);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(543, 44);
-            this.label1.TabIndex = 12;
-            this.label1.Text = "                        Danh sách file ẩn";
+            label1.BackColor = SystemColors.Control;
+            label1.Font = new Font("Times New Roman", 16.2F, FontStyle.Regular, GraphicsUnit.Point);
+            label1.Location = new Point(730, 22);
+            label1.Name = "label1";
+            label1.Size = new Size(543, 44);
+            label1.TabIndex = 12;
+            label1.Text = "                        Danh sách file ẩn";
             // 
             // textBoxNewPassword
             // 
-            this.textBoxNewPassword.Font = new System.Drawing.Font("Times New Roman", 13.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.textBoxNewPassword.Location = new System.Drawing.Point(190, 352);
-            this.textBoxNewPassword.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.textBoxNewPassword.Name = "textBoxNewPassword";
-            this.textBoxNewPassword.Size = new System.Drawing.Size(513, 34);
-            this.textBoxNewPassword.TabIndex = 13;
+            textBoxNewPassword.Font = new Font("Times New Roman", 13.8F, FontStyle.Regular, GraphicsUnit.Point);
+            textBoxNewPassword.Location = new Point(190, 352);
+            textBoxNewPassword.Margin = new Padding(3, 4, 3, 4);
+            textBoxNewPassword.Name = "textBoxNewPassword";
+            textBoxNewPassword.Size = new Size(513, 34);
+            textBoxNewPassword.TabIndex = 13;
             // 
             // MainMenu
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.BackColor = System.Drawing.SystemColors.Control;
-            this.ClientSize = new System.Drawing.Size(1306, 539);
-            this.Controls.Add(this.textBoxNewPassword);
-            this.Controls.Add(this.label1);
-            this.Controls.Add(this.flowLayoutPanelListFileHide);
-            this.Controls.Add(this.buttonThoat);
-            this.Controls.Add(this.buttonXemFile);
-            this.Controls.Add(this.textBoxMatKhau);
-            this.Controls.Add(this.labelMatKhau);
-            this.Controls.Add(this.buttonXuatFileAn);
-            this.Controls.Add(this.buttonAn);
-            this.Controls.Add(this.labelChonFilePDFDeAn);
-            this.Controls.Add(this.labelChonFilePDFCanAn);
-            this.Controls.Add(this.buttonChonFilePDFDeAn);
-            this.Controls.Add(this.buttonCHonFilePDFCanAn);
-            this.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.Name = "MainMenu";
-            this.Text = "MainMenu";
-            this.ResumeLayout(false);
-            this.PerformLayout();
-
+            AutoScaleDimensions = new SizeF(8F, 20F);
+            AutoScaleMode = AutoScaleMode.Font;
+            BackColor = SystemColors.Control;
+            ClientSize = new Size(1306, 539);
+            Controls.Add(textBoxNewPassword);
+            Controls.Add(label1);
+            Controls.Add(flowLayoutPanelListFileHide);
+            Controls.Add(buttonThoat);
+            Controls.Add(textBoxMatKhau);
+            Controls.Add(labelMatKhau);
+            Controls.Add(buttonXuatFileAn);
+            Controls.Add(buttonAn);
+            Controls.Add(labelChonFilePDFDeAn);
+            Controls.Add(labelChonFilePDFCanAn);
+            Controls.Add(buttonChonFilePDFDeAn);
+            Controls.Add(buttonCHonFilePDFCanAn);
+            Margin = new Padding(3, 4, 3, 4);
+            Name = "MainMenu";
+            Text = "MainMenu";
+            ResumeLayout(false);
+            PerformLayout();
         }
 
         #endregion
@@ -223,7 +208,6 @@
         private Button buttonXuatFileAn;
         private Label labelMatKhau;
         private TextBox textBoxMatKhau;
-        private Button buttonXemFile;
         private Button buttonThoat;
         private FlowLayoutPanel flowLayoutPanelListFileHide;
         private Label label1;

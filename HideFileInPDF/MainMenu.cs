@@ -21,7 +21,7 @@ namespace HideFilePDF
         private static string fileName = null;
         private static string pdfPath = null;
         private string filePath = null;
-        private FileProcessing file=new FileProcessing();
+        private FileProcessing file = new FileProcessing();
         private EncryptDecrypt encryptDecrypt = new EncryptDecrypt();
         public MainMenu()
         {
@@ -133,7 +133,7 @@ namespace HideFilePDF
             {
                 MessageBox.Show("Vui lòng nhập mật khẩu", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
-            else if(fileName==null)
+            else if (fileName == null)
             {
                 MessageBox.Show("Vui lòng chọn file ẩn trong danh sách để xuất", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
@@ -141,7 +141,7 @@ namespace HideFilePDF
             {
                 byte[] salt = file.GetSalt(fileName);
                 string hashedPassword = file.GetHashedPassword(fileName);
-                if (encryptDecrypt.VerifyPassword(textBoxMatKhau.Text, hashedPassword,salt))
+                if (encryptDecrypt.VerifyPassword(textBoxMatKhau.Text, hashedPassword, salt))
                 {
                     string selectedFileName = fileName;
                     if (selectedFileName != null)
@@ -170,7 +170,7 @@ namespace HideFilePDF
                     {
                         MessageBox.Show("Không có file được chọn.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         return;
-                    }                   
+                    }
                 }
                 else
                 {
@@ -278,7 +278,7 @@ namespace HideFilePDF
                     string OldHashedPassword = file.GetHashedPassword(fileName);
                     if (encryptDecrypt.VerifyPassword(textBoxMatKhau.Text, OldHashedPassword, salt))
                     {
-                        if (textBoxMatKhau.Text==textBoxNewPassword.Text)
+                        if (textBoxMatKhau.Text == textBoxNewPassword.Text)
                         {
                             MessageBox.Show("Mật khẩu mới phải khác mật khẩu cũ", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                             return;
@@ -309,7 +309,7 @@ namespace HideFilePDF
             // Kích thước của FlowLayoutPanel sẽ tự động thay đổi để hiển thị thanh cuộn nếu cần
             flowLayoutPanelListFileHide.AutoScroll = true;
             //Làm mới fileName
-            //fileName = null;
+            fileName = null;
         }
     }
 }
