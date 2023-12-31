@@ -21,7 +21,7 @@ namespace libraryFileProcessing
         private EncryptDecrypt encryptDecrypt = new EncryptDecrypt();
 
         public const int BlockSize = 512;//byte
-        public const int FATSize = 3 * BlockSize; // Kích thước của phần FAT (ví dụ: 16KB)
+        public const int FATSize = 32 * BlockSize; // Kích thước của phần FAT (ví dụ: 16KB)
 
         private static string pdfFilePath;
         public long PDFSize ;

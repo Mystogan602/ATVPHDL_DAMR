@@ -40,6 +40,7 @@
             flowLayoutPanelListFileHide = new FlowLayoutPanel();
             label1 = new Label();
             textBoxNewPassword = new TextBox();
+            labelMatKhauMoi = new Label();
             SuspendLayout();
             // 
             // buttonCHonFilePDFCanAn
@@ -118,7 +119,7 @@
             // 
             labelMatKhau.BackColor = SystemColors.Control;
             labelMatKhau.Font = new Font("Times New Roman", 16.2F, FontStyle.Regular, GraphicsUnit.Point);
-            labelMatKhau.Location = new Point(21, 292);
+            labelMatKhau.Location = new Point(21, 277);
             labelMatKhau.Name = "labelMatKhau";
             labelMatKhau.Size = new Size(163, 51);
             labelMatKhau.TabIndex = 7;
@@ -127,10 +128,10 @@
             // textBoxMatKhau
             // 
             textBoxMatKhau.Font = new Font("Times New Roman", 13.8F, FontStyle.Regular, GraphicsUnit.Point);
-            textBoxMatKhau.Location = new Point(190, 293);
+            textBoxMatKhau.Location = new Point(202, 277);
             textBoxMatKhau.Margin = new Padding(3, 4, 3, 4);
             textBoxMatKhau.Name = "textBoxMatKhau";
-            textBoxMatKhau.Size = new Size(513, 34);
+            textBoxMatKhau.Size = new Size(501, 34);
             textBoxMatKhau.TabIndex = 8;
             // 
             // buttonThoat
@@ -149,16 +150,16 @@
             // flowLayoutPanelListFileHide
             // 
             flowLayoutPanelListFileHide.BorderStyle = BorderStyle.FixedSingle;
-            flowLayoutPanelListFileHide.Location = new Point(728, 69);
+            flowLayoutPanelListFileHide.Location = new Point(728, 63);
             flowLayoutPanelListFileHide.Name = "flowLayoutPanelListFileHide";
-            flowLayoutPanelListFileHide.Size = new Size(545, 383);
+            flowLayoutPanelListFileHide.Size = new Size(545, 389);
             flowLayoutPanelListFileHide.TabIndex = 11;
             // 
             // label1
             // 
             label1.BackColor = SystemColors.Control;
             label1.Font = new Font("Times New Roman", 16.2F, FontStyle.Regular, GraphicsUnit.Point);
-            label1.Location = new Point(730, 22);
+            label1.Location = new Point(728, 16);
             label1.Name = "label1";
             label1.Size = new Size(543, 44);
             label1.TabIndex = 12;
@@ -167,11 +168,21 @@
             // textBoxNewPassword
             // 
             textBoxNewPassword.Font = new Font("Times New Roman", 13.8F, FontStyle.Regular, GraphicsUnit.Point);
-            textBoxNewPassword.Location = new Point(190, 352);
+            textBoxNewPassword.Location = new Point(202, 338);
             textBoxNewPassword.Margin = new Padding(3, 4, 3, 4);
             textBoxNewPassword.Name = "textBoxNewPassword";
-            textBoxNewPassword.Size = new Size(513, 34);
+            textBoxNewPassword.Size = new Size(501, 34);
             textBoxNewPassword.TabIndex = 13;
+            // 
+            // labelMatKhauMoi
+            // 
+            labelMatKhauMoi.BackColor = SystemColors.Control;
+            labelMatKhauMoi.Font = new Font("Times New Roman", 16.2F, FontStyle.Regular, GraphicsUnit.Point);
+            labelMatKhauMoi.Location = new Point(21, 337);
+            labelMatKhauMoi.Name = "labelMatKhauMoi";
+            labelMatKhauMoi.Size = new Size(179, 51);
+            labelMatKhauMoi.TabIndex = 14;
+            labelMatKhauMoi.Text = "Mật khẩu mới:";
             // 
             // MainMenu
             // 
@@ -179,6 +190,7 @@
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = SystemColors.Control;
             ClientSize = new Size(1306, 539);
+            Controls.Add(labelMatKhauMoi);
             Controls.Add(textBoxNewPassword);
             Controls.Add(label1);
             Controls.Add(flowLayoutPanelListFileHide);
@@ -212,5 +224,6 @@
         private FlowLayoutPanel flowLayoutPanelListFileHide;
         private Label label1;
         private TextBox textBoxNewPassword;
+        private Label labelMatKhauMoi;
     }
 }
